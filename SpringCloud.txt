@@ -1,0 +1,259 @@
+
+spring cloud相关知识点：
+什么是微服务：
+	强调的是服务的大小，关注的是某一个带你，是具体解决某一个问题/提供落地对应服务的一个服务应用。
+微服务之间是如何独立通讯的：
+	
+
+springCloud和Dubbo有哪些区别：
+	dubbo基于rpc远程过程调用
+	springcloud基于http的RESTful API
+
+SpringBoot和SpringCloud，请你谈谈对他们的理解：
+
+什么是服务熔断，什么是服务降级：
+
+微服务的优缺点分别是什么？说下你在项目开发中碰到的坑：
+	优点：每个业务独立，易于理解，低耦合。
+	缺点：分布式系统的开发复杂性、多服务运维难度增大、系统部署依赖、服务间通信成本、性能监控、数据一致性等
+
+你说知道的微服务技术栈有哪些，请列表一二：
+	微服务条目				落地技术
+	服务开发、				SpringBoot、Spring、SpringMVC
+	服务配置与管理、		NEtflix的Archaius，阿里的Diamond
+	服务注册与发现、		Eureka、Zookeeper、Consul
+	服务调用、				Rest、RPC、GRPC
+	服务熔断器、			Hystrix、Envoy
+	服务负载均衡、			Ribbon、Nginx
+	服务接口调通、			Feign
+	消息队列				Kafka\RabbitMQ、ActiveMQ
+	服务配置中心管理		SpringCloudConfig
+	服务路由				Zuul
+	服务监控				Zabbix\Nagios\Merics\Spectator
+	服务部署				Docker\Openstack
+	时间消息总栈			SpringCloudBus
+	
+eureka和zookeeper都可以提供服务注册与发现的功能，请说说两个的区别：
+	1、eureka遵循AP zookeeper循询CP
+	2、
+
+
+eureka相关知识：Eureka循询AP原则
+1、eureka服务端配置参数
+	register-with-eureka:false 表示不像注册中心注册自己
+	fetch-registry:false 表示自己就是注册中心，职责是维护服务实例，并不需要检索服务
+	启动类上配置@EnableEurekaServer
+2、Eureka自我保护机制
+  eureka:
+	client：客户端注册进eureka服务列表内
+		srvice-url:
+			defaultZone:http://localhost:7001/eureka
+	instance:
+		instance-id:springcloud-test8001 自定义服务器信息
+		prefer-ip-address:true  访问路径可以显示ip地址
+	
+Ribbon负载均衡(Load Balance LB)：
+	在微服务或分布式集群中经常用的一种应用。
+	负载均衡简单的说就是将用户的请求平摊的分配到多个服务上，从而达到系统的HA
+	常见的负载均衡有nginx,lvs等
+	dubbo和springcloud均给我们提供了负载均衡，springcloud的负载均衡算法可以自定义
+	ribbon其实就是一个软负载均衡的客户端组件，他可以和其他所需请求的客户端结合使用，和eureka结合只是其中的一个实例
+RiundRobinRule 轮询
+ private AtomicInteger nextServerCyclicCounter;
+ public Server choose(ILoadBalancer lb, Object key) {
+        if (lb == null) {
+            log.warn("no load balancer");
+            return null;
+        }
+
+        Server server = null;
+        int count = 0;
+        while (server == null && count++ < 10) {//最多重试10次
+            List<Server> reachableServers = lb.getReachableServers();//可用服务
+            List<Server> allServers = lb.getAllServers();//所有的服务
+            int upCount = reachableServers.size();
+            int serverCount = allServers.size();
+
+            if ((upCount == 0) || (serverCount == 0)) {
+                log.warn("No up servers available from load balancer: " + lb);
+                return null;
+            }
+
+            int nextServerIndex = incrementAndGetModulo(serverCount);//获取下一个服务下标
+            server = allServers.get(nextServerIndex);
+
+            if (server == null) {
+                /* Transient. */
+                Thread.yield();//执行状态变成就绪状态
+                continue;
+            }
+
+            if (server.isAlive() && (server.isReadyToServe())) {//服务是可用状态
+                return (server);
+            }
+
+            // Next.
+            server = null;
+        }
+
+        if (count >= 10) {
+            log.warn("No available alive servers after 10 tries from load balancer: "
+                    + lb);
+        }
+        return server;
+    }
+	 private int incrementAndGetModulo(int modulo) {
+        for (;;) {
+            int current = nextServerCyclicCounter.get();
+            int next = (current + 1) % modulo;
+            if (nextServerCyclicCounter.compareAndSet(current, next))
+                return next;
+        }
+    }
+RandomRule 随机
+public Server choose(ILoadBalancer lb, Object key) {
+        if (lb == null) {
+            return null;
+        }
+        Server server = null;
+
+        while (server == null) {
+            if (Thread.interrupted()) {
+                return null;
+            }
+            List<Server> upList = lb.getReachableServers();
+            List<Server> allList = lb.getAllServers();
+
+            int serverCount = allList.size();
+            if (serverCount == 0) {
+                /*
+                 * No servers. End regardless of pass, because subsequent passes
+                 * only get more restrictive.
+                 */
+                return null;
+            }
+
+            int index = chooseRandomInt(serverCount);
+            server = upList.get(index);
+
+            if (server == null) {
+                /*
+                 * The only time this should happen is if the server list were
+                 * somehow trimmed. This is a transient condition. Retry after
+                 * yielding.
+                 */
+                Thread.yield();
+                continue;
+            }
+
+            if (server.isAlive()) {
+                return (server);
+            }
+
+            // Shouldn't actually happen.. but must be transient or a bug.
+            server = null;
+            Thread.yield();
+        }
+
+        return server;
+
+    }
+
+    protected int chooseRandomInt(int serverCount) {
+        return ThreadLocalRandom.current().nextInt(serverCount);
+    }
+AvailabilityFilteringRule 
+	会先过滤掉由于多次访问故障而处理断路器跳闸状态的服务，还有并发连接数量超过阈值的服务，然后对剩余的服务列表按照轮询策略进行访问
+WeightResponseTimeRule	
+	根据平均响应时间计算所有服务的权重，响应时间越快服务权重越大被选中概率越高，刚启动时如果统计信息不足，
+	则使用轮询策略，等统计信息足够，会切换到该策略
+RetryRule
+	先按照轮询策略获取服务，如果获取服务失败则在指定时间内(500ms)会进行重试，获取可用的服务
+	
+	IRule subRule = new RoundRobinRule();
+	long maxRetryMillis = 500;
+	public Server choose(ILoadBalancer lb, Object key) {
+		long requestTime = System.currentTimeMillis();
+		long deadline = requestTime + maxRetryMillis;
+
+		Server answer = null;
+		answer = subRule.choose(key);
+		if (((answer == null) || (!answer.isAlive()))
+				&& (System.currentTimeMillis() < deadline)) {
+			InterruptTask task = new InterruptTask(deadline
+					- System.currentTimeMillis());
+
+			while (!Thread.interrupted()) {
+				answer = subRule.choose(key);
+
+				if (((answer == null) || (!answer.isAlive()))
+						&& (System.currentTimeMillis() < deadline)) {
+					/* pause and retry hoping it's transient */
+					Thread.yield();
+				} else {
+					break;
+				}
+			}
+
+			task.cancel();
+		}
+
+		if ((answer == null) || (!answer.isAlive())) {
+			return null;
+		} else {
+			return answer;
+		}
+	}
+BestAvailableRule
+	会先过滤由于多次访问故障而处于断路器跳闸状态的服务，然后选择一个并发量最小的服务
+ZoneAvoidanceRule
+	默认规则，复合判断server所在区域的性能和可用性选择服务器
+	
+rabbon配置自定义Rule
+	启动类上加@RabbonCliet(name='微服务名称',configuration=MySelfRule.class)
+	自定义的类不能放在@ComponentScan扫描的包和子包下面。
+	启动类主体包名com.oak.springcloud，要想生效，新建包com.oak.mrule
+	@Configuration
+	public class MySelfRule{
+		@Bean
+		public IRule myRule(){
+			return new RandomRule();//Ribbon默认是轮询,可自定义为随机等其他
+		}
+	}
+
+	
+Feign相关知识：
+	feign是一个声明式的web服务客户端，使的编写web服务客户端变得非常容易
+	只需要创建一个接口，然后再上面添加注解即可
+	feign集成了ribbon，通过轮询实现了客户端的负载均衡
+	
+Hystrix断路器相关知识：
+	分布式系统面临的问题：复杂分布式体系结构中的应用程序有数十个依赖关系，每个依赖关系在某些时候将不可避免的失败
+	hystrix是一个用于处理分布式系统的延迟和容错的开源库，在分布式系统里，许多依赖不可避免的会调用失败，
+	比如超时异常等，hystrix能够保证在一个依赖出问题情况下，不会导致整体服务失败，避免级联故障，提高分布式系统的弹性
+	熔断机制是应对雪崩效应的一种微服务链路保护机制
+	缺省是5秒内20次调用失败就会启动熔断机制，注解是@HystrixCommand(fallbackMethod="hystrixMethod")会造成方法膨胀
+	
+	服务降级：@Component 实现FallbackFactory<具体接口>
+
+zuul路由网关
+	zuul包含了对请求的路由和过滤两个最主要的功能
+	提供=代理+路由+过滤三大功能
+before
+http://myzuul.com:9889/servicecouldname/user/get/1
+
+zuul:
+	prefix: /vg	域名后需要跟该地址才能访问
+	ignored-services: servicecouldname //忽略该微服务通过该路径访问 
+	routs:
+		myuser.serviceId: servicecouldname
+		myuser.path: /myuser/**
+after
+http://myzuul.com:9889/myuser/user/get/1
+prefix:加了该参数后的访问地址
+http://myzuul.com:9889/vg/myuser/user/get/1
+
+
+SpringCloud Config分布式配置中心
+	为微服务架构中的微服务提供集中化的外部配置支持，配置服务器为各个不同微服务应用的所有环境提供了一个中心化的外部配置
+	分为服务端和客户端两部分

@@ -1,0 +1,266 @@
+
+
+----------------------------------------------------------------------------------------------------------
+redis知识点：
+nosql(not only sql) 非关系型数据库
+1、Redis{KV Cache Persistence}
+2、Memcache
+3、Mongodb
+
+大数据时代的3V 
+	1、海量Volume 2、多样Variety 3、实时Velocity
+互联网需求的3高
+	1、高并发 2、高可扩 3、高性能
+
+去IOE 在IT建设过程中，去除IBM小型机、Oracle数据库及EMC存储设备
+	
+NoSql数据库四大分类
+1、KV键值对 典型介绍 阿里 memcache+redis 美团 redis+tair
+2、文档型数据库 典型介绍 Mongodb
+3、列存储数据库 典型介绍 HBase
+4、图关系数据库 典型介绍 Neo4j InfoGrid
+
+分布式数据库中CAP原理CAP+BASE
+传统的ACID分别是什么 
+	原子性 一致性 隔离性 持久性
+CAP
+	Consistency 强一致性 Availability 可用性 Partition Tolerance 分区容错性
+CAP的三选2
+	CA 只能实用于单机系统
+	CP  Redis MongoDB
+	AP	大多数网站架构的选择 可用性和分区容错性必须保证 数据最终一致性即可
+BASE
+	基本可用
+	软状态
+	最终一致
+高可用：相同的服务部署在不同的服务器上
+分布式：不同的服务部署在不同的服务器上，通过远程过程调用(RPC)
+	
+Redis:Remote Dictionnary Server 远程字典服务器
+完全开源免费的，用C语言编写，遵守BSD协议，是一个高性能的key/value分布式内存数据库，
+基于内存运行。
+redis支持数据的持久化，可以将内存中的数据保存在磁盘中，重启的时候可以再次加载进行使用
+redis不仅仅支持简单的key/value类型数据，还一共list,set,zset,hash等数据结构存储
+redis支持数据的备份，即master-slave模式的数据备份
+
+redis常用命令：
+
+select 0 	切换数据库(默认是0-15)
+dbsize 		key个数
+flushall 	清空所有key
+flushdb 	清空当前db中key
+
+keys * 		查询所有key
+keys *0* 	查询包含指定值的key
+exists key 	当前key是否存在 1 存在 0不存在
+move key 2  把key移到2号数据库
+expire key 5 设置key的过期时间 单位为秒
+ttl key		 查看还有多少秒过期，-1表示永不过期 -2 表示已过期
+type key 	 查看key的类型
+del key 	删除指定key
+
+String相关:
+append key value	当前key后面拼接该值
+strlen key			当前key的值的长度
+-- 一定是数字才能进行加减
+incr key		每次增加1				
+decr key		每次减少1
+incrby key 2	每次指定增加value
+decrby key 2	每次指定减少value
+getrange key 0 3 获取指定key的值的区间值 下标0-3
+setrange key 0 x 替换指定key的值的区间值 下标0 替换为指定的X
+setex key 10 value 指定key设置value并且设置过期时间
+setnx key value	 key不存在才设置当前value，否则不处理
+mset  key1 v1 key2 v2 批量设置key和value
+mget key1 key2 	批量获取key的值
+msetnx key1 v1 key2 v2 要么都成功要么都失败
+
+List相关：
+lpush list 1 2 3 往list中存放数据 3 2 1 头部插入
+lrange list 0 1		获取key的指定下标的数据
+rpush list 1 2 3 往list中存放数据 1 2 3 尾部插入
+lpop list	头部出
+rpop list	尾部出
+lindex list 按照索引下标获取元素(从上到下)
+llen list list长度
+lrem list 2 3 删除集合中N个value 即删除2个3
+ltrim list 0 4 从list中截取0到4位然后替换原来的value
+rpoplpush list1 list2 list1尾部出1一个数插入到list2的头部 
+
+Set相关：去重
+sadd set01 1 1 2 3 4 插入元素去除重复的
+smembers set01	获取集合中的元素
+sismember set01 1 值是否在集合中存在 1 存在 0 不存在	
+scard set01 获取集合中元素的个数
+srem set01 3 删除集合中元素
+srandmember set01 3 随机出几个数
+spop set01 随机出栈
+smove key1 key2  5 把key1集合中的值5赋值给key2集合
+sdiff key1 key2 差集 已key1为基准比较
+sinter key1 key2 交集
+sunion key1 key2 并集
+
+Hash相关:kv模式不变，但V是一个键值对
+hset user id 11
+hget user id  
+hmset user id 11 name lisi age 22 score 91.5 批量设置
+hmget user id name age	批量获取
+hmgetall user 获取当前key的所有属性
+hdel user name 删除当前key下的某个属性
+hlen user 集合长度
+hexists user id 在key里面的某个值的key是否存在 1 存在 0 不存在
+hkeys user 获取key里面的值的所有key
+hvals user 获取key里面的所有值
+hincrby	user age 2 当前年龄加2
+hincrbyfloat user score 0.5
+hsetnx user age 22 不存在就插入 存在就不处理
+
+Zset(sorted set)相关：
+zadd zset01 60 v1 70 v2 80 v3 90 v4
+zrange zset01 60 80 获取60-80之间的key
+zrangebyscore zet01 (60 (80 获取60-80之间的key 不包含60和80
+zrangebyscore zet01 60 80 limit 2 2 获取60-80之间的key且从下标2开始截取2位
+zrem zset01 v1 某个score下对应的值 删除元素
+zcard  zset01 获取长度
+zcount zset01 60 80 作用是获取分数在60-80之间的个数
+zrank zset01 60 80 作用是获取下标值/zscore key对应值,获取分数
+zrevrank zset01 0 -1 作用是逆序获取下标值
+
+redis的过期策略以及内存淘汰机制
+volatile-lru 设置了过期时间的key 根据最近最少使用算法淘汰key
+allkeys-lru	  对所有key 根据最近最少使用算法淘汰key
+volatile-random 设置了过期时间的key 随机淘汰key
+allkeys-random 对所有key 随机淘汰key
+volatile-ttl 移除哪些ttl值最小的值 即那些最近要过期的key
+noeviction	不进行移除 针对写操作，只返回错误信息
+
+redis采用的是定期删除+惰性删除策略。
+为什么不用定时删除策略?
+定时删除,用一个定时器来负责监视key,过期则自动删除。虽然内存及时释放，但是十分消耗CPU资源。在大并发请求下，CPU要将时间应用在处理请求，而不是删除key,因此没有采用这一策略.
+定期删除+惰性删除是如何工作的呢?
+定期删除，redis默认每个100ms检查，是否有过期的key,有过期key则删除。需要说明的是，redis不是每个100ms将所有的key检查一次，而是随机抽取进行检查(如果每隔100ms,全部key进行检查，redis岂不是卡死)。因此，如果只采用定期删除策略，会导致很多key到时间没有删除。
+于是，惰性删除派上用场。也就是说在你获取某个key的时候，redis会检查一下，这个key如果设置了过期时间那么是否过期了？如果过期了此时就会删除。
+采用定期删除+惰性删除就没其他问题了么?
+不是的，如果定期删除没删除key。然后你也没即时去请求key，也就是说惰性删除也没生效。这样，redis的内存会越来越高。那么就应该采用内存淘汰机制。
+
+
+Redis日志级别
+debug  测试环境
+verbose 默认
+notice 生产环境
+warning
+
+Redis持久化:
+
+RDB (Redis DataBase)
+	1、在指定的时间间隔内将内存中的数据集快照写入磁盘，也就是snapshot快照。恢复时是将快照文件直接读到内存里
+		Redis会单独创建fork一个子进程来进行持久化，会先将数据写入到一个临时文件中，待持久化过程都结束了，
+		在用这个临时文件替换上次持久化好的文件。整个过程中，主进程不进行任何IO操作，这就确保了极高的性能。
+		如果需要大规模的数据恢复，且对于数据恢复的完整性不是很敏感，那么RDB方式比AOF更加高效。
+		RDB的缺点是最后一次持久化的数据可能丢失。
+	2、fork的作用是复制一个与当前进程一样的进程。新进程的所有数据（变量、环境变量、程序计数器等）数值和原进程
+		一样，但是是一个全新的进程，并作为原进程的子进程。
+	3、保存的是dump.rdb文件
+	备份策略：
+	save 900 1 		15分钟内修改过一次 自动备份
+	save 300 10		5分钟内修改过10次，自动备份
+	save 60 10000	一分钟内修改过10000次 自动备份
+	save "" 不备份
+	
+AOF	(Append Only File)
+	1、以日志的形式来记录每个写操作，将redis执行过的所有写指令记录下来(读操作不记录)，只许追加文件但不可以
+	改写文件，redis启动之初会读取改文件重新构建数据，换言之，redis重启的话就根据日志文件的内容将写指令从
+	前到后执行一次以完成数据的恢复工作。
+	2、AOF保存的是appendonly.aof文件
+	3、APPEND ONLY MODE 
+	appendonly no 默认为no 配置为yes时，已aof日志备份
+	备份策略：
+	# appendfsync always 同步持久化 每次发生数据变更会被立即记录到磁盘，性能较差单数据完整性比较好
+	appendfsync everysec 出厂默认配置 异步操作 每秒记录 如果一秒内宕机 有数据丢失
+	# appendfsync no
+	auto-aof-rewrite-percentage 100 设置重新的基础值  百分比
+	auto-aof-rewrite-min-size 64mb	设置重新的基础值
+	
+事务相关：
+multi 	标记一个事务块的开始。 随后的指令将在执行EXEC时作为一个原子执行。
+exec	执行事务中所有在排队等待的指令并将链接状态恢复到正常 当使用WATCH 时，只有当被监视的键没有被修改，且允许检查设定机制时，EXEC会被执行
+discard	刷新一个事务中所有在排队等待的指令，并且将连接状态恢复到正常。如果已使用WATCH，DISCARD将释放所有被WATCH的key。
+watch	标记所有指定的key 被监视起来，在事务中有条件的执行（乐观锁）。
+unwatch 刷新一个事务中已被监视的所有key。如果执行EXEC 或者DISCARD， 则不需要手动执行UNWATCH 。
+
+redis对事务是部分支持（不保证原子性）。
+1、编译时异常类型的事务执行，失败就会全部失败。失败的语句加入queue时就会提示错误
+2、运行时错误的，正常的语句会正常执行。都会正常加入queue
+
+悲观锁：每次拿数据的时候都认为别人会修改，所以每次拿数据都会上锁，其他人用这个数据就是阻塞直接它拿到锁。
+乐观锁：每次去拿数据的时候都认为别人不会修改，所以不会上锁。但是在更新的时候会判断一下再次期间别人有没有
+去更新这个数据，可以使用版本号等机制。乐观锁适用于多读的应用，可以提高吞吐量。
+乐观锁策略：提交版本必须大于记录当前版本才能执行更新。
+
+redis的发布订阅：
+	进程间的一种消息通信模式：发送者(pub)发送消息，订阅者(sub)接受消息
+
+Redis的复制(Master/Slave):
+	1、也就是我们所说的主从复制，主机数据更新后根据配置和策略，自动同步到备机的master/slave机制，master以写为主slave以读为主
+	2、读写分离，容灾恢复
+	3、配从库不配主库、从库配置 slaveof主库ip 主库端口 常用3招：一主两仆、薪火相传、反客为主
+	
+info replication :查看当前机器信息
+通过命令设置从机的方式：salveof 127.0.0.1 6379 当做6379机器的从机
+例子：
+6379 6380 6381三个机器 6380 6381为6379的从机
+1、主机负责写，从机只能读
+2、主机挂了，从机还是从机，不会从新选举，主机再次连接上后正常使用
+3、从机挂了，再次连接，从机变成主机。
+
+salveof no one 是当前数据库停止与其他数据库的同步，转成主数据库
+
+哨兵模式(sentinel):
+是什么：反客为主的自动版，能够后台监控主机是否故障，如果故障了根据投票数自动将从库转换为主库
+怎么玩：
+1、新建sentinel.conf文件
+2、配置哨兵，填写内容。sentinel monitor 被监控数据库名字(host666) 127.0.0.1 6379 1
+  上面最后一个数字1，表示主机挂掉后salve投票看让谁接替成为主机，得票数多少后成为主机
+3、启动哨兵
+4、原有的master挂了
+5、投票新选
+6、重新主从继续开工
+一组sentinel能同事监控多个master
+
+redis缓存穿透 缓存击穿 缓存雪崩
+缓存穿透:key对应的数据在数据源中不存在，那么缓存中也就不会有，针对该key的请求最终后落到数据库上，从而可能压垮数据库。
+解决方案：
+	1、针对该key设置一个空置,有效时间设置短一些
+	2、最常见的则是采用布隆过滤器，将所有可能存在的数据哈希到一个足够大的bitmap中，一个一定不存在的数据会被 这个bitmap拦截掉，从而避免了对底层存储系统的查询压力
+	
+缓存击穿:针对某一个热点数据key，在某一个时间点redis中过期，此时大量并发请求过来，缓存中没有就会落到数据库上，从而可能瞬间把数据库压垮
+解决方案：	
+	1、使用互斥锁(mutex key)，使用redis.setnx实现。
+	if(value == null){
+		if(redis.setnx(muex_key,1,3*60)==1){
+			//成功 就会查询db  存入缓存 删除互斥锁的key
+			redis.set(key,value,expire_secs)
+			redis.del(muex_key)
+		}else{
+			//重试 其他的线程重新获取key
+			get(key)
+		}
+	}
+	2、通过synchronized+双重检查机制：某个key只让一个线程查询，阻塞其它线程
+	private static volaite Object lockHelp=new Object();
+	String value = redis.get(key);
+	if(value == null){
+		symchronized(lockhelp){
+			String value = redis.get(key);
+			if(value == null){
+				//查询db并设置缓存
+			}else{
+				
+			}
+		}
+	}
+	
+缓存雪崩:多个热点数据的key在某个时间点同时失效，大量请求落到数据库上，从而压垮数据库。
+解决方案：
+	1、加锁方式
+	2、过期时间分散

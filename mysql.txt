@@ -1,0 +1,157 @@
+
+---------------------------------------------------------------------------------------------------------------------------
+MYSQL知识：
+mysql性能因素：cpu io
+
+索引：
+索引是帮助mysql高效获取数据的数据结构，排序好的快速查找结构
+B+树结构组织的索引
+show index from table;
+create index idx_tablename_columnname on mytable(column);
+alter table mytable add primary key(column);//主键
+alter table mytable add unique index_name(column);//唯一索引
+alter table mytable add index index_name(column);//普通索引
+drop index idx_tablename_columnname on mytable;
+
+explain sql
+id:表的执行顺序。
+	id相同，执行顺序由上而下。
+	id不同，如果是子查询，id的序号会递增，id越大优先级越高，越先被执行。
+	id有相同和不同，id相同的可认为是一组，从上往下执行，所有组中，id越大，游戏级越高，越先执行
+select_type:查询类型 用于区分普通查询 联合查询 子查询等复杂查询
+	simple:简单的sql查询 不包含子查询或者union
+	primary:查询中包含复杂的子部分，最外层查询被标记为
+	subquery:在select或where列表中包含了子查询
+	derived:在from列表中包含的子查询被标记为derived
+	union
+	union result
+table
+表名
+type:从最好到最差
+	system>const>eq_ref>ref>range>index>all
+	const:通过索引一次就找到了，用于比较primary_key或者unique索引
+	eq_ref：唯一性索引扫描，对于每个索引键，表中只有一条记录与之匹配。
+	ref：非唯一索引性扫描，返回匹配某个单独值的所有行。
+	range：只检索给定范围的行，使用一个索引来选择行。 between 、<、>、in等的查询
+	index：只遍历索引树，通常比all快，因为索引文件通常比数据文件小
+	all；遍历全表以找到匹配的行
+possible_keys
+table中的索引
+key
+实际用到的索引
+key_len
+	key长度 越小越好
+ref
+	显示索引的哪一列被使用了 可能的话 是一个常数
+rows
+	行数 越小越好
+extra
+	using filesort 必须优化
+	using temporary 必须优化
+	using index 
+	using where 
+	using join buffer 
+
+索引例子：
+A B C三个字段的联合索引
+alter table mytable add index index_a_b_c(a,b,c);
+where a=1 and b>1 and c=2;
+此时只有a b起到效果,由于b是范围查询，导致c 索引失效
+drop index_a_b_c on mytable
+alter table mytable add index index_a_c(a,c);
+
+索引遵循的规则：
+1、最佳左前缀法则   a=1 and b=1 and c=1 反例:b=1 and c=1索引失效
+2、不在索引列上做任何操作。最好不要在where条件 =的左边字段做任何操作 反例：left(a,4)=1
+3、存储引擎不能使用索引中范围条件右边的列 a=1 and b>1 and c=1 a b索引有效，c是失效
+5、尽量使用覆盖索引。就是查询条件所用了索引，获取的列也是索引列。优势是索引就包含了当前列数据，不在需要获取数据行读取数据
+6、mysql在使用不等于(!=或者<>)的时候索引失效导致全表扫描
+7、is null，is not null无法使用索引
+8、like以通配符开头，mysql索引失效会变成全表扫描 (%z)全表  (z%) range查询 尽量%写右边
+9、字符串不加单引号索引失效
+10、少用or,用它来连接时索引失效
+注意点：
+a=1 and b=1 and c=1
+c=1 and b=1 and a=1
+c=1 and a=1 and b=1
+效果是一样的  mysql5.5版本后会自动优化sql 
+
+order by满足两种情况会使用index方式排序
+1、order by 语句使用索引最左排序
+2、使用where自居与order by 子句条件列组合满足索引最左前列
+
+order by column 如果不在索引列上，filesort有两种算法：
+1、双路排序
+2、单路排序
+sort_buffer_size
+max_length_for_sort_data
+
+大数据量处理理论：
+大数据的问题：本质就是要操作的基数太大，我们后序的处理思路就是将基数变小
+缓存、数据库优化、算法、nosql
+
+分区分库分表知识：
+mysql分区：partition
+range分区 
+list分区:根据区域
+create table user(
+	uid int not null
+	uname varchar(20),
+	area_id int
+)engine myisam charset utf8
+partition by list(area_id)(
+	partition bj values in(1),
+	partition sh values in(2),
+	partition gz values in(3),
+	partition sz values in(4)
+)
+
+mysql分库：
+mysql分表：
+
+mysql主从复制：
+salve会从master读取binlog来进行数据同步
+复制的基本原理：分三步
+1、master将改变记录到二进制日志(binary log)这些记录过程叫做二进制日志事件
+2、salve将master的binary log events拷贝到它的中继日志(relay log)
+3、salve重做中继日志中的事件，将改变应用到自己的数据库中。mysql复制是异步且串行化的
+复制的基本原则：
+1、每个salve只有一个master
+2、每个人salve只能有一个唯一的服务器ID
+3、每个master可以有多个salve
+复制的最大问题：
+延迟
+一主一从常见配置：
+
+mysql锁机制：
+默认的隔离级别是不可重复度。 
+								脏读	不可重复读	幻读
+读未提交(read uncommitted)		是		是 			是	 
+读已提交(read committed)		否		是 			是	
+可重复读(repeatable read)		否		否			是
+串行化(Serializable)			否		否			否
+
+按对数据操作的类型分：读锁(共享锁)：写锁(排它锁)
+从对数据操作的粒度分：
+表锁(偏读)：
+	偏向myisam存储引擎，开销小加锁快，无死锁；锁定粒度大发生锁冲突的概率最高，并发度最低
+行锁(偏写)：
+	偏向innodb存储引擎，开销大加锁慢，会出现死锁。锁定粒度最小，发生锁冲突的概率最低，并发度也最高
+	与myisam的最大两点不同：支持事务，采用了行级锁
+	
+	
+页锁：
+
+查看哪些表被加锁了:
+show open tables
+如何分析表锁定：
+show status like 'table%'
+Table_locks_immediate:产生表级锁定的次数，表示可以立即获取锁的查询次数，每理解获取锁值加1
+Table_locks_waited:出现表级锁定争用而发生等待的次数，此值高则说明存在着较严重的表级锁争用情况
+如何分析行锁定：
+show status like 'innodb_row_lock%'
+Innodb_row_lock_current_waits:当前正在等待锁定的数量
+Innodb_row_lock_time：从系统启动到现在锁定总时间长度
+Innodb_row_lock_time_avg：每次等待所花平均时间
+Innodb_row_lock_time_max：从系统启动到现在等待最长的一次所花时间
+Innodb_row_lock_waits：系统启动到现在总共等待的次数
