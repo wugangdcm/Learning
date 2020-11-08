@@ -1,0 +1,154 @@
+查看ip：ifconfig
+通过该命令显示具体命令的详细描述：man ps 
+文本编辑 vim是vi的增强
+vi/vim
+删除光标当前行 dd 或者d5d 删除光标到下面的一共5行
+撤销上一步 u
+复制光标当前一行 yy 或者y5y 复制5行
+移动到行头 shift+^
+移动到行尾 shift+$
+移动到页头 数字1+shift+g
+移动到页尾 shift+g
+移动到目标行 数字N+shift+g
+
+一般模式可以删除、复制等操作但是不能标记文件内容，要手动按i o a r等字幕才进入编辑模式
+按这些键后左下方出现insert或者replace才可以编辑，要回到一般模式时，必须按ESC退出编辑模式。
+I 在当前光标之前编辑
+A 在当前光标之后编辑
+O 在当前光标下一行编辑
+1、vim aa.txt
+2、先按I进入编辑
+3、编辑好后按ESC退出编辑模式
+4、:wq! 保存
+指令模式
+:
+/ 查找 /被查找词 n是查找下一个 shift+n是往上查找
+? 查找 ?被查找词 n是查找上一个 shift+n是往下查找
+
+新增用户 useradd wugang
+新增用户并加入组里 useradd -g 用户组 wugang
+设置密码 passwd wugang
+用户是否存在 id wugang
+查看当前用户 whoami/who am i
+切换用户 su - 用户名
+删除用户 userdel -r wugang 
+修改用户 usermod -g 用户组 用户名
+新增组 groupadd 组名
+删除组 groupdel 组名
+修改组 groupmod 组名 groupmod -n 新组名 老组名
+
+查看与用户有关的系统文
+cat /etc/passwd 所有用户可读 所以密码是加密单独存的一个文件 shadow
+cat /etc/shadow 记录加密后的密码 只有超级用户能读
+cat /etc/group
+
+常用命令
+时间日期类 
+	date +format 例如 date + %F' '%H:%M:%S 2016-05-10 10:20:25
+	cal
+
+文件目录类
+	pwd 显示当前的目录
+	ls -l 列表显示当前目录下的文件
+	mkdir 创建一个新目录 mkdir -p a/b/c 创建级联目录
+	rmdir 删除一个空目录
+	touch 新增一个文件  touch a.txt
+	cd 切换目录
+	rm 移除文件或目录 
+		rm -f a.txt 强制删除 不进行确认
+		rm -fr a 强制删除该目录及子目录下所有数据
+	mv 移动文件与目录或修改名称 mv a.txt b.txt 剪切并改名
+	cat 由第一行开始显示文件内容
+		cat -b a.txt 显示文本的内容并显示行号 非空行才有行号
+		cat -v a.txt 列出一些看不出来的特殊字符
+	tac 从最后一行开始显示 与cat相反
+	more 一页一页的显示文件内容
+		more a.txt
+		空格键spqce 代表向下翻一页
+		Enter 代表向下翻一行
+		q 代表立刻离开more 不在显示该文件内容
+		b 代表往回翻页
+	less与more类似  但是比more支持功能更多
+	head 只看头几行 head -10 a.txt
+	tail 只看尾几行 tail -10 a.txt
+
+文件权限类
+	chmod
+网络配置类
+	ifconfig 查看ip
+磁盘分区类
+	分区 fdisk -l
+	df /boot 目录挂在在哪个分区
+	df -h 列出文件系统的整体磁盘使用量，检查文件系统的磁盘空间占用情况
+搜索查找类
+	find . -name 'a.*'
+	grep+参数+查找内容+源文件 在文件内搜索字符串匹配的行并输出
+	例子：grep -n ggg a.txt 显示匹配的行及行号
+进程线程类
+	ps 查看正在执行的进程
+	ps -a 显示当前终端的所有进程信息
+	ps -u 以用户的格式显示进程信息
+	ps -x 显示后台的进程运行参数
+	ps -aux | grep sshd 查看远程登录服务的进程
+	ps -ef | grep tomcat 能显示该进程的父进程
+	kill killall终止进程
+	kill -9 pid
+	
+	service iptables status 查看防火墙状态
+	service iptables stop 关闭
+	service iptables start 启动
+	
+	top 动态监控 默认三秒刷新一次
+	top -d 10 指定时间10秒刷新一次
+	
+	netstat -anp | more
+	netstat -anp | grep 8080
+	
+	
+压缩和解压类
+	gzip 压缩文件 gzip a.txt 生成a.txt.gz 原文件不保留
+	gunzip	解压文件 同gzip反向过程
+	zip	压缩文件 zip -r aaa.zip /home/ 把home目录下的所有文件打包
+	unzip 解压文件 unzip -d /opt/temp aaa.zip 把目标包解压到指定的文件目录下
+	tar 打包指令
+	tar -zcvf a.tar.gz a1.txt a2.txt 把目录下a1和阿两个文件打包到a.tar.gz中
+	tar -zcvf a.tar.gz /home/ 整个目录打包a.tar.gz中
+	tar -zxvf a.tar.gz 解压到当前目录
+	tar -zxvf a.tar.gz -C /opt/temp 解压到指定目录
+	
+性能优化类
+
+文件权限
+	从左到右的10个字符表示 rwx三个为一组 read可读 write可写 execute可执行
+	地0位确认文件类型 
+	1-3位确定该文件所有者拥有该问价你的权限 User
+	4-6位确定所有者的同组用户拥有该文件的权限 Group
+	7-9位确定其他用户拥有该文件的权限 Other
+	chmod 改变文件或者目录权限
+	-rw-r--r-- 改成-rwxr--r--
+	rw- 二进制是110 十进制是6 rwx 二进制是111 十进制是7
+	chmod 744 a.txt
+
+RPM相关
+	rpm -ivh rpm包名 安装rpm包命令
+	rpm -e rpm包名 卸载包命令
+	rpm -q tomcat 查看软件包是否安装
+	rpm -qi tomcat 查询软件包信息
+	rpm -ql tomcat 查看软件包中的文件
+	rpm -qf 文件全路径名 查看文件所属软件包
+	
+	
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
