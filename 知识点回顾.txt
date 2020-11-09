@@ -11,3 +11,65 @@
 	在主内存有个a=25的数据，
 	三个线程来修改这个值，会把这个值拷贝到各自的工作内存(每个线程的私有数据区域)缓存起来
 	t1把值改成30，写回主内存 a=30，t2,t3线程并不知道a已经修改，因此会造成数据的混乱
+	
+	双重加锁单例模式 没使用volatile的时候 可能出现问题
+	private static SingletonDemo instance = null;
+	private static volatile SingletonDemo instance = null;
+	if(instance == null){
+		synchronized(SingletonDemo.class){
+			if(instance == null){
+				instance = new SingletonDemo();
+			}
+		}
+	}
+	
+	分析：对象的创建分布三步 2 3步可能重排序 就会拿到一个没初始化完成的对象
+	1、分布内存空间
+	2、初始化数据
+	3、instance = 对象的指针指向这个引用
+
+2、CAS是什么 比较并交换 如何保证数据的原子性的
+	CAS的功能就是判断内存某个位置的值是否为预期值，如果是就更改为新值，否则不修改并返回false，这个过程是原子的
+	Unsafe是CAS的核心类。java是无法访问底层系统的，需要通过本地(native)方法来访问,Unsafe相当于一个后门。基于
+	该类可以直接操作特定的内存数据。Unsafe类在rt.jar sum.misc包中，其内部方法可以直接操作内存。Unsafe中类都是native修饰的
+	CAS是一种系统原语，原语的执行必须是连续的不能被中断，也就是说CAS是一条CPU的原子指令，不会造成数据不一致问题
+	public final int getAndIncrement() {
+	   return unsafe.getAndAddInt(this, valueOffset, 1);
+	}
+	//var1 当前对象引用 var2 当前对象内存偏移量 var4 需要更新操作的值
+	getAndAddInt(Object var1,long var2,int var4){
+		int var5;
+		do{
+			//先获取该对象内存中的当前值
+			var5=this.getIntVolatile(var1,var2);
+			//操作时在获取一次值并判断是否和上一步获取的值是否一致 如果一致 更新值 否则继续执行循环
+		}while(!this.compareAndSwapInt(var1,var2,var5,var5+var4));
+		return var5;
+	}
+	valueOffset表示该变量值在内存中的偏移地址，Unsafe就是根据内存你的偏移地址获取数据的
+	value用volatile修饰，保证了内存的可见性
+	
+CAS的缺点：
+	1、如果CAS比较值失败，会一致尝试修改，可能给CPU带来很大压力
+	2、只能保证一个共享变量的原子性
+	3、引出来的ABA问题
+	
+CAS-->Unsafe-->CAS底层思想-->ABA-->原子引用更新-->如何规避ABA问题
+
+AtomicInteger的ABA问题，原子引用更新是什么，如何规避ABA问题
+
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
