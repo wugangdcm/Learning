@@ -1,0 +1,25 @@
+git status 查看版本库文件状态 是否存在修改文件
+git add a.txt
+git commit -m '文件修改介绍'
+git log --pretty=oneline a.txt 查看某个文件的提交记录
+git reset --hard HEAD^ 回退到上一个版本
+git reflog a.txt 所有操作的记录
+git reset --hard 42e055a 回退到指定版本
+git reset --hard HEAD~3 回退到上三个版本
+git branch 查看分支
+git branch dev 创建分支
+git checkout dev 切换到dev分支
+git checkout master 切换到主干
+git merge dev  把dev代码合并到master
+git checkout -b test  创建test分支并切换
+git branch -d dev 删除分支 master下执行
+git clone https://github.com/zzzz/aaa.git
+
+
+git push重复输入密码问题
+系统变量新建home
+HOME %USERPROFILE%
+在C:\user\admin目录下新建名字为_netrc的文件并编辑
+machine github.com
+login wugang
+password Aa123456
