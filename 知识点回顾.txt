@@ -174,12 +174,42 @@ Hashtable是线程安全的，通过synchronized修饰方法体保证
 HashMap、LinkedHashMap、TreeMap是分线程安全的，javaAPI提供了两种方式
 1、Collections.synchronizedMap(new HashMap<>());
 2、new ConcurrentHashMap();
-	
-	
-	
-	
-	
-	
+
+HashMap数据结构：
+JDK1.7:数组+链表
+JDK1.8:数组+链表+红黑树
+默认输出容量：DEFAULT_INITIAL_CAPACITY = 1 << 4	16
+为什么必须为2的N次方：1、方便&运算 2、为了扩容之后整体的移动
+加载因子：DEFAULT_LOAD_FACTOR = 0.75f;时间与空间的一个折中值
+列表转红黑树的阈值：TREEIFY_THRESHOLD = 8;
+红黑树转列表的阈值：UNTREEIFY_THRESHOLD = 6;
+转红黑树的条件：MIN_TREEIFY_CAPACITY = 64;
+
+put解析：
+hash(key):扰动函数 return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16); 散列尽可能的均匀分布
+Node<K,V>[] resize() Initializes or doubles table size
+创建一个容量为16的Node数据	
+Node<K,V>[] newTab = (Node<K,V>[])new Node[newCap];	
+与(&)运算比取模(%)运算快很多
+1.7是头插法 1.8尾插法
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 	
 	
 	
