@@ -123,6 +123,12 @@ activeMQMessageProducer.send(textMessage, new AsyncCallback() {
 延时投递和定时投递
 修改配置文件 支持定时投递  schedulerSupport="true"
 <broker xmlns="http://activemq.apache.org/schema/core" brokerName="localhost" dataDirectory="${activemq.data}" schedulerSupport="true">
+//延迟投递的时间
+long AMQ_scheduled_delay = 3 * 1000;
+//重复投递的时间间隔
+long AMQ_scheduled_period = 4 * 1000;
+//重复投递次数
+int AMQ_scheduled_repeat = 3;
 textMessage.setLongProperty(ScheduledMessage.AMQ_SCHEDULED_DELAY, AMQ_scheduled_delay);
 textMessage.setLongProperty(ScheduledMessage.AMQ_SCHEDULED_PERIOD, AMQ_scheduled_period);
 textMessage.setIntProperty(ScheduledMessage.AMQ_SCHEDULED_REPEAT, AMQ_scheduled_repeat);

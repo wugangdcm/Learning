@@ -71,6 +71,7 @@ cat /etc/group
 	less与more类似  但是比more支持功能更多
 	head 只看头几行 head -10 a.txt
 	tail 只看尾几行 tail -10 a.txt
+	tail 循环读取 tail -f a.txt
 
 文件权限类
 	chmod

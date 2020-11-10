@@ -250,7 +250,7 @@ redis缓存穿透 缓存击穿 缓存雪崩
 	private static volaite Object lockHelp=new Object();
 	String value = redis.get(key);
 	if(value == null){
-		symchronized(lockhelp){
+		synchronized(lockhelp){
 			String value = redis.get(key);
 			if(value == null){
 				//查询db并设置缓存
