@@ -56,7 +56,7 @@ CAS的缺点：
 	
 CAS-->Unsafe-->CAS底层思想-->ABA-->原子引用更新-->如何规避ABA问题
 
-AtomicInteger的ABA问题，原子引用更新是什么，如何规避ABA问题
+3、AtomicInteger的ABA问题，原子引用更新是什么，如何规避ABA问题
 	多个线程在执行操作的时候，t1线程执行速度快，t2线程执行慢，假如主内出初始值为A，t1初次操作把A改成B，然后又把B改成A，
 	此时主内存的值是一样的，t2线程执行更新的时候，发现当前值和预期的值是一样的，就会执行修改成功，中间过程有改动，t1线程是不管的。
 	如果业务只关注最终结果，那么是没什么问题的，如果关注中间的处理步骤，那么ABA将是个问题。
@@ -65,7 +65,99 @@ AtomicInteger的ABA问题，原子引用更新是什么，如何规避ABA问题
 	由于u2的引用和u1是指向同一块内存地址，所有会更新数据成功，即使u2的数据已经改动。AtomicReference
 	
 	可以通过加版本号的方式解决，如同数据库的乐观锁一样。每次改动加一个版本号，每次更新前，当前线程拥有的版本号小于实际版本号时 不执行更新。AtomicStampedReference
+
+4、公平锁/非公平锁/可重入锁/递归锁/自旋锁的理解，并手写一个自旋锁。
+
+
+5、CountDownLatch/CyclicBarrier/Semaphore 是什么
+CountDownLatch：倒计时 所有线程都执行完之后 才执行主线程下的业务逻辑
+	CountDownLatch countDownLatch = new CountDownLatch(5);
+	for (int i = 1; i <= 5; i++) {
+		new Thread(() -> {
+			System.out.println(Thread.currentThread().getName() + "开始处理业务逻辑。。。");
+			countDownLatch.countDown();
+		}, CountEnum.getNameByCode(i)).start();
+	}
+	countDownLatch.await();
+	System.out.println("所有业务执行完成在执行下面业务。。。");
 	
+CyclicBarrier：内存屏罩点 达到指定的次数后执行主线程或者指定的逻辑
+	CyclicBarrier cyclicBarrier = new CyclicBarrier(7, () -> {
+		System.out.println("cyclicBarrier other end then statr");
+	});
+	for (int i = 1; i <= 7; i++) {
+		new Thread(() -> {
+			System.out.println(Thread.currentThread().getName() + "开始执行...");
+			try {cyclicBarrier.await();} catch (InterruptedException e) {e.printStackTrace();} catch (BrokenBarrierException e) {e.printStackTrace();}
+		}, String.valueOf(i)).start();
+	}
+
+Semaphore：信号量主要用于两个目的 一个是多个共享资源的互斥，另一个用于并发线程数的控制
+	Semaphore semaphore = new Semaphore(3);
+	for (int i = 0; i < 6; i++) {
+		new Thread(() -> {
+			try {
+				semaphore.acquire();
+				System.out.println(Thread.currentThread().getName() + "抢到座位...");
+				try {TimeUnit.SECONDS.sleep(2);} catch (InterruptedException e) {e.printStackTrace();}
+				System.out.println(Thread.currentThread().getName() + "看完书离开");
+			} catch (InterruptedException e) {
+				e.printStackTrace();
+			} finally {
+				semaphore.release();
+			}
+		}, String.valueOf(i)).start();
+	}
+
+6、阻塞队列是什么，为什么用，有什么好处。队列是先进先出。
+	1、当阻塞队列是空时，从队列中获取元素的操作将会被阻塞
+	2、当阻塞队列是满时，往队列中添加元素的操作将会被阻塞
+	在多线程领域，所谓阻塞，在某些情况下会挂起线程即阻塞，一单满足条件，被挂起的线程又会被唤醒。
+	好处是我们不需要关心什么时候需要阻塞线程，什么时候需要唤醒线程，因为BlockingQueue都给你实现了
+ArrayBlockingQueue：由数组结构组成的有界阻塞队列
+LinkedBlockingQueue：由链表结构组成的有界阻塞队列，默认无限大
+PriorityBlockingQueue：支持优先级排序的无线阻塞队列
+DelayQueue：使用优先级队列实现的延迟无界阻塞队列
+SynchronousQueue：不存储元素的阻塞队列，也即单个元素的队列
+LinkedTransferQueue：由列表结构组成的无界阻塞队列
+LinkedBlockingDeque：由链表结构组成的双向阻塞队列
+
+插入方法：
+	//add(E) 元素满后 抛出异常 java.lang.IllegalStateException: Queue full
+	//put(E) 元素满后 一直阻塞
+	//offer(E) 元素满后 返回false,否则返回true
+	//offer(E) 在该队列的尾部插入指定的元素，等待指定的等待时间，以使空间在队列已满时变为可用。
+移除方法：
+	//remove() 当队列没有数据时，报错 java.util.NoSuchElementException
+	//take() 当队列没有数据时，一直阻塞
+	//poll() 当队列没有数据时，返回null
+	//poll(,TimeUnit.SECONDS) 检索并删除此队列的头，等待指定的等待时间（如有必要）使元素变为可用。
+检索方法：
+	//element() 检索但不删除由此deque表示的队列的头部（换句话说，该deque的第一个元素）。没有元素：java.util.NoSuchElementException
+	//peek() 检索但不删除由此deque表示的队列的头部（换句话说，该deque的第一个元素），如果此deque为空，则返回 null 。 
+        
+
+7、synchronized和lock的区别，用lock有什么好处，举例说说
+	1、synchronized是关键字属于jvm层面 底层通过 monitorenter  monitorexit实现
+	   lock是具体类是javaAPI
+	2、synchronized不需要手动去释放锁，当代码执行完之后系统会自动让线程释放对锁的占有
+		lock需要手动释放锁，若没有主动释放锁，就可能造成死锁现象。lock()和unlock()为一组
+	3、synchronized是不可中断的，除非排除异常或者正常运行完成
+		lock可以中断
+	4、synchronized非公平锁
+		lock默认非公平锁，可以在构造函数中指定，支持公平锁
+	5、synchronized没有condition，通过notify()唤醒
+		lock用来实现分组唤醒需要唤醒的线程，可以精确唤醒，而不是synchronized要么随机唤醒一个线程或者全部唤醒
+	
+	
+	
+	
+	
+	
+	
+	
+
+
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 List集合回顾：
 					interface list
@@ -193,14 +285,54 @@ Node<K,V>[] newTab = (Node<K,V>[])new Node[newCap];
 与(&)运算比取模(%)运算快很多
 1.7是头插法 1.8尾插法
 
+i++
+iconst_0  //把数值0 push到操作数栈  操作数据栈=0
+istore_1  //把操作数栈写回到本地变量第2个位置 本地变量=0 操作数据栈为空
+iload_1   //把本地变量第2个位置的值push到操作数栈 本地变量和操作数据栈都为0
+iinc 1,1  //把本地变量表第2个位置加1 本地变量+1=1    
+istore_1  //把操作数据栈写回本地变量第2个位置 操作数据栈0写回本地变量=0
+return    // 返回结果为0
 
+++i
+0: iconst_0		//把数值0 push到操作数栈  操作数据栈=0
+1: istore_1		//把操作数栈写回到本地变量第2个位置 本地变量=0 操作数据栈为空
+2: iinc 1, 1	//把本地变量表第2个位置加1 本地变量+1=1    
+5: iload_1		//把本地变量第2个位置的值push到操作数栈 本地变量和操作数据栈都为1
+6: istore_1		//把操作数据栈写回本地变量第2个位置 操作数据栈1写回本地变量=1
+7: return		// 返回结果为1
+
+java中 ^ 是什么意思
+按位异或运算符(^)是二元运算符，要化为二进制才能进行计算，在两个操作数中，如果两个相应的位相同，则运算结果为0，否则1；例如：
+int a=15；
+int b=a^8;
+运算结果为：a=15；b=7；
+a（二进制）=1111；8（二进制）=1000；1111^1000=0111;er 0111=7(十进制）；
+
+7&3 ： 0111&0011 执行结果为 ： 0011
+
+for (Entry<K,V> e : table) {
+	while(null != e) {
+		Entry<K,V> next = e.next;              //注释1
+		if (rehash) {
+			e.hash = null == e.key ? 0 : hash(e.key);
+		}
+		int i = indexFor(e.hash, newCapacity); //注释2
+		e.next = newTable[i];                  //注释3
+		newTable[i] = e;                       //注释4
+		e = next;                              //注释5
+	}
+}
+			
+			
+-----------------------------------------------------------------------------------------------------------------------------------------------------
 AVL树是平衡二叉树，他的左右子树高度之差不超过1
 
 红黑树的性质：
-1、每个节点不是红色就是黑色
-2、不可能有连在一起的红色节点
-3、根节点都是黑色
-4、每个红色节点的两个子节点都是黑色，叶子节点都是黑色，出度为0满足了性质就可以近似的平衡了。
+（1）节点是要么红色或要么是黑色。
+（2）根一定是黑色节点。
+（3）每个叶子节点都带有两个空的黑色节点（称之为NIL节点，它又被称为黑哨兵）。
+（4）每个红色节点的两个子节点都是黑色（或者说从每个叶子到根的所有路径上不能有两个连续的红色节点）。
+（5）从任一节点到它所能到达得叶子节点的所有简单路径都包含相同数目的黑色节点。
 
 红黑树的三种变换规则
 1、改变颜色 红变黑 黑变红
@@ -220,7 +352,7 @@ AVL树是平衡二叉树，他的左右子树高度之差不超过1
 (1)以祖父节点旋转
 
 
-
+递归+回溯就已经是dfs(深度优先搜索)
 
 
 
