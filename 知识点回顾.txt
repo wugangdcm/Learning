@@ -24,7 +24,7 @@
 	}
 	
 	分析：对象的创建分布三步 2 3步可能重排序 就会拿到一个没初始化完成的对象
-	1、分布内存空间
+	1、分配内存空间
 	2、初始化数据
 	3、instance = 对象的指针指向这个引用
 
@@ -181,15 +181,101 @@ LinkedBlockingDeque：由链表结构组成的双向阻塞队列
 			4、DiscardOldestPolicy 直接丢弃任务，不予任何处理也不抛出异常。如果允许任务丢失这是最好的一种方案
 	)
 							  
-	4、说书哦线程池的底层工作原理
+	4、说说线程池的底层工作原理
+	
+10、死锁编码及定位分析
+	死锁是指两个或两个以上的进程在执行过程中，因争夺资源而造成的一种互相等待的现象。无外力干涉那么它们将无法进行。
+	分析:
+	jps 获取死锁的进程ID
+	jstack 进程ID 显示具体的错误信息
 	
 	
+11、JVM内存结构图
+	方法区 堆区 java栈 本地方法栈 程序计数器
+
+12、JVM垃圾回收的时候如何确定垃圾？是否知道什么是GC Roots
+	简单的说就是内存中已经不再被使用到的空间就是垃圾，通过引用计数法(无法解决循环依赖问题，已不使用)或者枚举跟节点做可达性分析确认
+	GBRoots：基本思路就是用过一系列名为GBRoots的对象作为起始点，从这个被称为GCRoots的对象开始向下搜索，如果一个对象到GCRoots
+	没有任务引用链相连时，则说明此对象不可用。给定一个集合的引用作为跟节点出发，通过引用关系遍历对象图，
+	能被遍历到的对象就被判定为存活，没有被遍历到的就被判定为死亡
+	
+	哪些可以作为GCRoots对象：
+		1、虚拟机栈中引用的对象、
+		2、方法区中的类静态属性引用的对象、
+		3、方法区中常量引用的对象、
+		4、本地方法栈中JNI(Native方法)引用的对象
+
+13、jv调优和参数配置，请问如何盘点查看JVM系统默认值
+	jvm参数类型：标配参数 X参数 XX参数(重要)
+	标配参数：-version -help -java showversion
+	X参数：-Xint 解释执行 -Xcomp 第一次使用就编译成本地代码 -Xmixed 混合模式
+	XX参数(重要)：
+		boolean类型：-XX:+PrintGCDetails  + 开启 - 不开启
+			查看jvm默认设置的值：jinfo -flag PrintGCDetails 79948
+		kv设置类型：-XX:属性key=属性值
+			查看jvm默认设置的值：jinfo -flag MetaspaceSize 79948
+
+		jinfo -flags 86772 查看所有的配置参数 包括jvm默认的 以及自己修改后的
+		Non-default VM flags: 
+		-XX:CICompilerCount=3 
+		-XX:InitialHeapSize=268435456 等价 -Xms 初始堆大小
+		-XX:MaxHeapSize=4271898624 等价 -Xmx 最大堆大小
+		-XX:MaxNewSize=1423966208 
+		-XX:MinHeapDeltaBytes=524288 
+		-XX:NewSize=89128960 
+		-XX:OldSize=179306496 
+		-XX:+UseCompressedClassPointers 
+		-XX:+UseCompressedOops 
+		-XX:+UseFastUnorderedTimeStamps 
+		-XX:-UseLargePagesIndividualAllocation 
+		-XX:+UseParallelGC
+		//查看所有jvm参数
+		java -XX:+PrintFlagsFinal -version
+		= 初始的  ：= 人为改过或者jvm自动改过后的
+		java -XX:+PrintFlagsFinal -XX:MetaspaceSize=512M javaclassname
+		//查看所有jvm参数 垃圾回收默认的回收机制
+		java -XX:+PrintCommandLineFlags -version
+
+		JAVA8后永久代被移除，被元攻坚的区域取代，元空间的本质和永久代类似。
+		两者最大的不同在于，永久代使用的是JVM堆内存，java8的元空间并不在虚拟机中而是使用本机物理内存
+		元空间大小受本地内存限制，类的元数据放入本地内存，字符串池和类的静态变量放入堆中，这类可以加载多少类的
+		元数据就在不由MapPermSize控制，而由系统的实际可用空间来控制。
+		
+		常用参数：
+		-Xms 初始堆内存 默认物理内存的1/64 等价于-XX:InitialHeapSize
+		-Xmx 最大堆内存 默认物理内存的1/4 等价于-XX:MaxHeapSize
+		-Xss 设置单个线程栈的大小，一般默认为512k*1024k 等价-XX:ThreadStackSize 需注意 依赖平台 linux等64位系统平台默认1024kb ,windows中默认值依赖虚拟内存
+		-Xmn 设置年轻代大小
+		-XX:MetaspaceSize 设置元空间大小
+		-XX:+PrintGCDetails 打印GC详细 规律：GC前内存大小->GC后内存占用(该区域内存总大小)
+			[GC (Allocation Failure) [PSYoungGen: 1932K->488K(2560K)] 1932K->680K(9728K), 0.0525741 secs] [Times: user=0.00 sys=0.00, real=0.05 secs] 
+			[GC (Allocation Failure) [PSYoungGen: 488K->488K(2560K)] 680K->688K(9728K), 0.0388777 secs] [Times: user=0.00 sys=0.00, real=0.04 secs] 
+			[Full GC (Allocation Failure) [PSYoungGen: 488K->0K(2560K)] [ParOldGen: 200K->652K(7168K)] 688K->652K(9728K), [Metaspace: 3440K->3440K(1056768K)], 0.0053123 secs] [Times: user=0.02 sys=0.00, real=0.01 secs] 
+			[GC (Allocation Failure) [PSYoungGen: 0K->0K(2560K)] 652K->652K(9728K), 0.0002624 secs] [Times: user=0.00 sys=0.00, real=0.00 secs] 
+			[Full GC (Allocation Failure) [PSYoungGen: 0K->0K(2560K)] [ParOldGen: 652K->634K(7168K)] 652K->634K(9728K), [Metaspace: 3440K->3440K(1056768K)], 0.0085474 secs] [Times: user=0.00 sys=0.00, real=0.01 secs] 
+			Exception in thread "main" java.lang.OutOfMemoryError: Java heap space
+				at com.wdcm.jvm.gc.GcDemo.main(GcDemo.java:14)
+		-XX:SurvivorRatio=n 年轻代中eden区与两个Survivor区的比值 默认8:1:1 如为3，表示Eden:Survicor=3:2 Eden:S0:S1=3:1:1 
+		-XX:NewRatio=n 设置年轻代和年老代的比值 默认=2 如为3 表示年轻代和年老代比值为1:3
+		-XX:MaxTenuringThreshold=n 设置垃圾回收最大年龄 n 0-15之间 否则运行期间报错。
+
+14、强引用、软引用、弱引用、虚引用分别是什么
+	强引用：当内存不足jvm开始回收垃圾，对于强引用的对象，就算出现OOM也不会对该对象进行回收。
+        Object o1 = new Object(); Object o2 = o1;
+        o1 = null; System.gc();
+        System.out.println(o2); //o2对象还存在 没被回收
+	软引用：软引用是一种相对引用弱化了一些的引用，需要用java.lang.ref.SoftReference类实现，可以让
+		对象豁免一些垃圾收集。当系统内存充足时，不会回收，内存不足时，会回收。软引用通常用在对内存敏感的程序中，比如高速缓存就用到软引用。
+	弱引用：弱引用需要用java.lang.ref。WeakReference类来实现，它比软引用的生存期更短。只要垃圾回收机制一运行，不管jvm内存是否足够，都会回收该对象占用的内存
+	虚引用：
 	
 	
-	
-	
+15、请谈谈你对OOM的认识
 
 
+
+
+	
 -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 List集合回顾：
 					interface list
