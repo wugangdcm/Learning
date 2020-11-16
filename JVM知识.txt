@@ -1,12 +1,13 @@
 
-jvm相关
+JVM内存结构图
+	堆区域分为：新生代 老年代 持久代（jdk1.8后去除该区域）引入元空间(使用的是本地内存空间)
+		新生代分为 eden survivor(from to)三个区域 默认比8:1:1 垃圾回收15次后放入老年代 这个阈值可配置
+	方法区 java栈 本地方法栈 程序计数器
 
-堆区域分为：新生代 老年代 持久代（jdk1.8后去除该区域）
-新生代分为 eden survivor(from to)三个区域 默认比8:1:1 垃圾回收15次后放入老年代 这个阈值可配置
-
+---------------------------------------------------------------------------------------------------------------------
 垃圾回收常见算法：
 1、引用计数
-原理是此对象有一个引用，则增加一个计算，删除一个引用则叫上一个计算，垃圾回收时通收集计算为0的对象，
+原理是此对象有一个引用，则增加一个计算，删除一个引用则减少一个计算，垃圾回收时通收集计算为0的对象，
 次算法最致命的是无法处理循环引用的问题
 
 2、复制
@@ -21,38 +22,61 @@ jvm相关
 此算法结合了标记清除和复制两个算法的优点，也是分两阶段。第一阶段从根结点开始标记所有被引用对象，第二阶段遍历
 整个堆，清除未标记对象并且把存活对象压缩到堆的其中一块按顺序排放。次算法避免了标记清除的碎片问题，同时也避免了
 复制算法的空间问题。
+---------------------------------------------------------------------------------------------------------------------
 
 垃圾回收收集器
-年轻代：
-Serial 串行收集器
-只用一个CPU/一条收集线程去完成GC工作，且在进行垃圾收集时必须暂停其他所有的工作线程。
-Stop The World 简称STW 可以使用 -XX:+UserSerialGC打开 使用的复制算法
+	年轻代 Serail\ParNew\Parallel Scavenge
+	老年代 CMS\Serial Old\Parallel Old
+	公用 G1
+	
+	Serial 串行收集器
+		只用一个CPU/一条收集线程去完成GC工作，且在进行垃圾收集时必须暂停其他所有的工作线程。Stop The World 简称STW.
+		-XX:+UserSerialGC 开启该参数后，Young区Serial + Old区 Serial Old的收集器组合。表示新生代和老年代都会使用串行回收收集器，新生代使用复制算法，老年代使用标记-整理算法
 
-ParNew 并行收集器
-是serial的多线程版本。
+	ParNew 并行收集器
+		是serial的多线程版本。
+		-XX:+UseParNewGC 启用ParNew收集器，只影响新生代的收集(多个线程回收垃圾)，不影响老年代。新生代使用并行收集器ParNew+老年代Serial Old的组合。新生代使用复制算法，老年代使用标记整理算法
+		Java HotSpot(TM) 64-Bit Server VM warning: Using the ParNew young collector with the Serial old collector is deprecated and will likely be removed in a future release
+		意思是已经被启用未来会被移除该收集器
 
-parallel scavenge
-使用复制算法，也是并行多线程收集器，与其他收集器关注尽可能缩短垃圾收集时间不同，它更关注系统吞吐量：
-系统吞吐量=运行用户代码时间/（运行用户代码时间+垃圾收集时间）
+	parallel scavenge
+		是一个并行的多线程的垃圾收集器，俗称吞吐量优先收集器，使用复制算法。与其他收集器关注尽可能缩短垃圾收集时间不同，它更关注系统吞吐量：系统吞吐量=运行用户代码时间/（运行用户代码时间+垃圾收集时间）
+		-XX:+UserParallelGC JDK1.8默认的垃圾收集器。搭配老年代的Parallel Old收集器，jDK1.5之前可搭配SerialOld收集器
+		重点关注的是
+		1、可控制的吞吐量，比如程勋运行100分钟，垃圾回收1分钟，吞吐量就是100/(100+1)
+		2、自适应调节策略。虚拟机会根据当前系统的运行情况收集性能监控信息，动态调整这些参数以提供最合适的停顿时间。-XX:MaxGCPauseMillis
+		-XX:+UseParallelGC 或-XX:UseParallelOldGC 可互相激活使用Parallel Scavenge收集器
 
-老年代：
-CMS coucurrent mark sweep 并发标记清除  可搭配年轻代的 serial 或者 parnew
-是一款真正意义上的并发收集器。CMS是一种以获取最短回收停顿时间为目标的收集器，基于标记-清除算法实现
-整个GC过程分为四个步骤：
-1、初始标记 CMS initial mark
-2、并发标记 CMS concurrent mark 
-3、重新标记 CMS remark
-4、并发清除 CMS concurrent sweep,已死对象将会就地释放。
-CMS默认启动回收线程数=cpu数目+3
+	CMS coucurrent mark sweep
+		是一款真正意义上的并发收集器。CMS是一种以获取最短回收停顿时间为目标的收集器，基于标记-清除算法实现
+		整个GC过程分为四个步骤：
+		1、初始标记 CMS initial mark
+		2、并发标记 CMS concurrent mark 
+		3、重新标记 CMS remark
+		4、并发清除 CMS concurrent sweep,已死对象将会就地释放。
+		CMS默认启动回收线程数=cpu数目+3
+		-XX:+UseConcMarkSweepGC 开启该收集器时,将使用ParNew(新生代)+CMS(Old区)+Serial Old的收集器组合。Serial Old将作为CMS出错的后备收集器
 
-Serial Old 可搭配年轻代的 serial 或者 parnew 或者 parallel scavenge
-同年轻代不同的是采取的是标记-整理算法
+	Serial Old 已经弃用
+		同年轻代不同的是采取的是标记-整理算法
 
-Parallel Old 可搭配年轻代的 parallel scavenge
+	Parallel Old 可搭配年轻代的 parallel scavenge
+		-XX:+UseParallelOldGC 启用时，将使用parallel scavenge(新生代)+Parallel Old(Old区)的收集器组合
+		
+	G1垃圾收集器
+		G1垃圾收集器是JDK1.7u4版本后加入的，JDK9中变成默认的垃圾收集器
+		1、G1充分利用多CPU多核环境硬件优势，尽量缩短STW
+		2、G1整体上采用标记-整理算法，局部是用过复制算法，不会产生内存碎片
+		3、宏观上G1之中不在区分年轻代和老年代，把内存划分成多个独立的子区域。
+		4、G1收集器将整个内存区都混合在一起了，但其本身依然在小范围内进行年轻代和老年代的区分
+		5、G1只有逻辑上的分代概念，每个分区有可能随G1的运行在不同代之间前后切换
+		6、G1的Stop The World更可控，G1在停顿时间上添加了预测机制，用户可以指定期望停顿时间
 
-新老共有的收集器
-G1 gabage first
-
+		-XX:G1HeapRegionSize=n 设置G1 Region区域的大小 值是2的幂 范围是1M到32M 做多2048个区域
+		-XX:MaxGCPauseMillis=n 最大GC停顿时间
+		-XX:InitiatingHeapOccupancyPercent=n 堆占用了多少的时候触发GC 默认是45
+		-XX:ConcGCThreads=n 并发GC使用的线程数
+		-XX:G1ReservePercent=n 这是作为空闲空间的预留内存百分比，以降低目标空间溢出的风险
 
 ----------------------------------------------------------------------------------------------------------
 jps
@@ -78,13 +102,218 @@ jmap
 jstack
 
 ----------------------------------------------------------------------------------------------------------
--Xms 初始堆大小
--Xmx 最大堆大小
--XX:NewSize=n 设置年轻代大小
--XX:NewRatio=n 设置年轻代和年老代的比值 如为3 表示年轻代和年老代比值为1:3
--XX:SurvivorRatio=n 年轻代中eden区与两个Survivor区的比值 如为3，表示Eden:Survicor=3:2 Eden:S0:S1=3:1:1 
--XX:MaxPermSize=n 设置持久代大小
--XX:+UseSerialGC 设置串行收集器
--XX:+UseParallelGC 设置并行收集器
--XX:+UseParallelOldGC 设置并行年老代收集器
--XX:+UseConcMarkSweepGC 设置并发收集器
+请你谈谈对OOM的认识
+	java.lang.StackOverflowError
+	java.lang.OutOfMemoryError java.heap.space
+	java.lang.OutOfMemoryError GC overhead limit exceeded
+	 /**
+     * -Xms10m -Xmx10M -XX:+PrintGCDetails -XX:MaxDirectMemorySize=5M
+     * Exception in thread "main" java.lang.OutOfMemoryError: GC overhead limit exceeded
+     * GC回收时间过长会抛出该异常。过长的定义是超过98%的时间用来做GC并且回收了不到2%
+     * 堆内存。连续多次GC都只回收了不到2%的极端情况下才会抛出。
+     */
+	java.lang.OutOfMemoryError Direct buffer memory
+	 /**
+     * 本地初始内存大小=1799.5MB 大约内存的1/4
+     * -Xms10m -Xmx10M -XX:+PrintGCDetails -XX:MaxDirectMemorySize=5M
+     * Exception in thread "main" java.lang.OutOfMemoryError: Direct buffer memory
+     * 跟元空间Metasapce一样 用的是本地内存，不存在堆内存中
+     * ByteBuffer byteBuffer = ByteBuffer.allocateDirect(6 * 1024 * 1024);
+     */
+	java.lang.OutOfMemoryError unable to create new native thread
+    /**
+     * 一个应用进程创建太多线程 超过系统承载极限  Linux系统默认的是1024个 可以修改linux服务器配置 改大这个数量
+     */
+	java.lang.OutOfMemoryError Metaspace
+	存储class的一块区域 本地内存中
+
+----------------------------------------------------------------------------------------------------------
+JVM垃圾回收的时候如何确定垃圾？是否知道什么是GC Roots
+	简单的说就是内存中已经不再被使用到的空间就是垃圾，通过引用计数法(无法解决循环依赖问题，已不使用)或者枚举跟节点做可达性分析确认
+	GCRoots：基本思路就是用过一系列名为GCRoots的对象作为起始点，从这个被称为GCRoots的对象开始向下搜索，如果一个对象到GCRoots
+	没有任务引用链相连时，则说明此对象不可用。给定一个集合的引用作为跟节点出发，通过引用关系遍历对象图，
+	能被遍历到的对象就被判定为存活，没有被遍历到的就被判定为死亡
+	
+	哪些可以作为GCRoots对象：
+		1、虚拟机栈中引用的对象、
+		2、方法区中的类静态属性引用的对象、
+		3、方法区中常量引用的对象、
+		4、本地方法栈中JNI(Native方法)引用的对象
+		
+----------------------------------------------------------------------------------------------------------
+怎么查看服务器默认的垃圾收集器是哪个
+	java -XX:+PrintCommandLineFlags -version 默认的是并行垃圾回收器
+	-XX:InitialHeapSize=132519680 -XX:MaxHeapSize=2120314880 -XX:+PrintCommandLineFlags -XX:+UseCompressedClassPointers -XX:+UseCompressedOops -XX:-UseLargePagesIndividualAllocation -XX:+UseParallelGC
+	生产上如何配置垃圾收集器的
+	单CPU或小内存，单机程序 -XX:+UseSerialGC
+	多CPU需要最大吞吐量，后台计算行应用 -XX:+UseParallelGC或-XX:+UseParallelOldGC
+	多CPU 追求低停顿时间，需快速响应互联网应用 -XX:+UseConcMarkSweepGC -XX:+ParNewGC
+	---------------------------------------------------------------------------------------------------------------------------
+	参数							新生代垃圾收集器				新生代算法			老年代垃圾收集器		老年代算法
+	---------------------------------------------------------------------------------------------------------------------------
+	-XX:+UseSerialGC				SerialGC						复制				SerialOldGC				标记-整理
+	---------------------------------------------------------------------------------------------------------------------------
+	-XX:+UseParNewGC				ParNew							复制				SerialOldGC				标记-整理
+	---------------------------------------------------------------------------------------------------------------------------
+	-XX:+UseParallelGC或
+	-XX:+UseParallelOldGC			Parallel ScavenGe				复制				ParallelOld				标记-整理	
+	---------------------------------------------------------------------------------------------------------------------------
+	-XX:+UserConcMarkSweepGC		ParNew							复制				CMS+SerialOld的组合		标记-清除
+	---------------------------------------------------------------------------------------------------------------------------
+	-XX:+UseG1GC					G1整体上采用笔记整理算法		局部是用过复制算法
+	---------------------------------------------------------------------------------------------------------------------------
+
+//带jvm参数配置启动jar包
+java -server -Xms1024M -Xmx1024M -XX:+UseG1GC -jar 具体jar名称
+
+----------------------------------------------------------------------------------------------------------
+jv调优和参数配置，请问如何盘点查看JVM系统默认值
+	jvm参数类型：标配参数 X参数 XX参数(重要)
+	标配参数：-version -help -java showversion
+	X参数：-Xint 解释执行 -Xcomp 第一次使用就编译成本地代码 -Xmixed 混合模式
+	XX参数(重要)：
+		boolean类型：-XX:+PrintGCDetails  + 开启 - 不开启
+			查看jvm默认设置的值：jinfo -flag PrintGCDetails 79948
+		kv设置类型：-XX:属性key=属性值
+			查看jvm默认设置的值：jinfo -flag MetaspaceSize 79948
+
+		jinfo -flags 86772 查看所有的配置参数 包括jvm默认的 以及自己修改后的
+		Non-default VM flags: 
+		-XX:CICompilerCount=3 
+		-XX:InitialHeapSize=268435456 等价 -Xms 初始堆大小
+		-XX:MaxHeapSize=4271898624 等价 -Xmx 最大堆大小
+		-XX:MaxNewSize=1423966208 
+		-XX:MinHeapDeltaBytes=524288 
+		-XX:NewSize=89128960 
+		-XX:OldSize=179306496 
+		-XX:+UseCompressedClassPointers 
+		-XX:+UseCompressedOops 
+		-XX:+UseFastUnorderedTimeStamps 
+		-XX:-UseLargePagesIndividualAllocation 
+		-XX:+UseParallelGC
+		//查看所有jvm参数
+		java -XX:+PrintFlagsFinal -version
+		= 初始的  ：= 人为改过或者jvm自动改过后的
+		java -XX:+PrintFlagsFinal -XX:MetaspaceSize=512M javaclassname
+		//查看所有jvm参数 垃圾回收默认的回收机制
+		java -XX:+PrintCommandLineFlags -version
+
+		JAVA8后永久代被移除，被元空间的区域取代，元空间的本质和永久代类似。
+		两者最大的不同在于，永久代使用的是JVM堆内存，java8的元空间并不在虚拟机中而是使用本机物理内存
+		元空间大小受本地内存限制，类的元数据放入本地内存，字符串池和类的静态变量放入堆中，这类可以加载多少类的
+		元数据就在不由MapPermSize控制，而由系统的实际可用空间来控制。
+		
+		常用参数：
+		-Xms 初始堆内存 默认物理内存的1/64 等价于-XX:InitialHeapSize
+		-Xmx 最大堆内存 默认物理内存的1/4 等价于-XX:MaxHeapSize
+		-Xss 设置单个线程栈的大小，一般默认为512k*1024k 等价-XX:ThreadStackSize 需注意 依赖平台 linux等64位系统平台默认1024kb ,windows中默认值依赖虚拟内存
+		-Xmn 设置年轻代大小
+		-XX:MetaspaceSize 设置元空间大小
+		-XX:+PrintGCDetails 打印GC详细 规律：GC前内存大小->GC后内存占用(该区域内存总大小)
+			[GC (Allocation Failure) [PSYoungGen: 1932K->488K(2560K)] 1932K->680K(9728K), 0.0525741 secs] [Times: user=0.00 sys=0.00, real=0.05 secs] 
+			[GC (Allocation Failure) [PSYoungGen: 488K->488K(2560K)] 680K->688K(9728K), 0.0388777 secs] [Times: user=0.00 sys=0.00, real=0.04 secs] 
+			[Full GC (Allocation Failure) [PSYoungGen: 488K->0K(2560K)] [ParOldGen: 200K->652K(7168K)] 688K->652K(9728K), [Metaspace: 3440K->3440K(1056768K)], 0.0053123 secs] [Times: user=0.02 sys=0.00, real=0.01 secs] 
+			[GC (Allocation Failure) [PSYoungGen: 0K->0K(2560K)] 652K->652K(9728K), 0.0002624 secs] [Times: user=0.00 sys=0.00, real=0.00 secs] 
+			[Full GC (Allocation Failure) [PSYoungGen: 0K->0K(2560K)] [ParOldGen: 652K->634K(7168K)] 652K->634K(9728K), [Metaspace: 3440K->3440K(1056768K)], 0.0085474 secs] [Times: user=0.00 sys=0.00, real=0.01 secs] 
+			Exception in thread "main" java.lang.OutOfMemoryError: Java heap space
+				at com.wdcm.jvm.gc.GcDemo.main(GcDemo.java:14)
+		-XX:SurvivorRatio=n 年轻代中eden区与两个Survivor区的比值 默认8:1:1 如为3，表示Eden:Survicor=3:2 Eden:S0:S1=3:1:1 
+		-XX:NewRatio=n 设置年轻代和年老代的比值 默认=2 如为3 表示年轻代和年老代比值为1:3
+		-XX:MaxTenuringThreshold=n 设置垃圾回收最大年龄 n 0-15之间 否则运行期间报错。
+	
+----------------------------------------------------------------------------------------------------------	
+强引用、软引用、弱引用、虚引用分别是什么
+	强引用：当内存不足jvm开始回收垃圾，对于强引用的对象，就算出现OOM也不会对该对象进行回收。
+        Object o1 = new Object(); Object o2 = o1;
+        o1 = null; System.gc();
+        System.out.println(o2); //o2对象还存在 没被回收
+	软引用：软引用是一种相对引用弱化了一些的引用，需要用java.lang.ref.SoftReference类实现，可以让
+		对象豁免一些垃圾收集。当系统内存充足时，不会回收，内存不足时，会回收。软引用通常用在对内存敏感的程序中，比如高速缓存就用到软引用。
+	弱引用：弱引用需要用java.lang.ref.WeakReference类来实现，它比软引用的生存期更短。只要垃圾回收机制一运行，不管jvm内存是否足够，都会回收该对象占用的内存
+	虚引用：虚引用需要用java.lang.ref.PhantomReference类且加入ReferenceQueue构造来实现。回收的对象会存在队列中
+
+----------------------------------------------------------------------------------------------------------	
+生产环境服务器变慢，诊断思路和性能评估谈谈
+	整机：top uptime
+	CPU：vmstat -n 2 3
+		一般vmstat工具的使用时通过两个数字参数来完成的，第一个参数是采样的时间间隔数单位是秒，第二个是采样的次数
+		procs
+			r:运行和等待CPU时间片的进程数，原则上1核的cpu运行队列不要超过2，整个系统的运行队列不要超过总核数的2倍，否则表示压力过大
+			b:等待资源的进程数，比如正在等待磁盘I/O、网络I/O等
+		cpu
+			us:用户进程消耗CPU时间百分比,us值高，用户进程消耗cpu时间多，如果长期大于50%，优化程序
+			sy:内核进程消耗的cpu时间百分比
+			us+sy参考值为80%，如果us+sy大于80%，说明可能内存不足。
+			id:处于空闲的cpu百分比
+			wa:系统等待io的cpu时间百分比
+			st:来自于一个虚拟机偷取的cpu时间的百分比
+	mpstat -P All 2查看所有cpu的使用情况 
+	pidstat -u 1 -p(进程编号)  ps -ef|grep java 找到某个java进程的ID查看cpu消耗信息
+	内存：free
+		free k显示  free -g g显示  free -m 按M显示 更加方便看
+		应用程序可用内存>70%内存充足
+		应用程序可用内存<20%内存不足 需要增加内存
+		pidstat -p 110(进程编号) -r 2 查看某个进程的内存消耗情况
+	硬盘：df
+		df -h 换算成g 方便查看
+	磁盘IO：iostat
+		iostat -xdk 2 3 两秒取样一次 取样3次
+		rkB/s 每秒读取数据量KB
+		wkB/s 每秒写入数据量KB
+		svctm I/O 请求的平均服务时间 单位毫秒
+		await I/O 请求的平均等待时间 单位毫秒，值越小 性能越好
+		util 一秒中有百分几的时间用于I/O操作，接近100%时表示磁盘带宽跑满，需要优化程序或者增加磁盘
+		
+		rkB/s wkB/s根据系统应用不同会有不同的值 但有规律遵循，长期超大数据读写，肯定不正常，需要优化程序读写
+		svctm的值与await的值很接近，表示几乎没有io等待 磁盘性能很好
+		如果await的值远高于svctm的值，则表示io队列等待太长，需要优化程序或者更换更快的磁盘
+		
+		pidstat -d 采样间隔秒数 -p 进程号 pidstat -d 2 -p 110
+	网络IO：ifstat
+		
+----------------------------------------------------------------------------------------------------------	
+假如生产服务器出现CPU占用过高，请你谈谈分析思路和定位
+	结合linux和jdk命令一起查看
+	1、通过top命令找出CPU占用最高的进程
+	2、ps -ef|grep java|grep -v grep 或者jps -l 找出具体的后台程序 假如找出进程ID为110
+	3、定位到具体线程或者代码
+		ps -mp 110(进程编号) -o THREAD,tid,time
+		-m 显示所有的线程
+		-p pid进程使用cpu的时间
+		-o 该参数后是用户自定义格式
+	4、具体线程ID转换为16进制格式(英文小写格式) print "%x\n" threadId 或者通过计算机转换 假如16进制为12ae
+	5、jstack 进程ID|grep tid(16进制xianchengID小写英文)-A60
+		jstack 100 | grep 12ae -A60
+
+----------------------------------------------------------------------------------------------------------	
+对于JDK自带的jvm监控和性能分析工具用过哪些，一般你是怎么用的。
+
+----------------------------------------------------------------------------------------------------------	
+
+springboot start:>=500
+springboot forks:>=500
+springboot forks:100..100 starts:100..200
+seckill in:name,description,readme
+awesome redis 更精准优秀的项目
+#L10 具体某个类的某行高亮显示
+#L10-L20 具体某个类的某段区间高亮显示
+进入某个项目 怎么让项目列表显示 英文字母t
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

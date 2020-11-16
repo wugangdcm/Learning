@@ -1,0 +1,123 @@
+类加载顺序问题：
+	static代码块类运行就会加载，且只会加载一次
+		static{...}
+	普通代码块按顺序执行，优先于构造方法
+		{...}
+	
+	Son extends Father{
+		Son(){}//2
+		static{}//3
+		{}//4
+	}
+	Father{
+		Father(){}//5
+		static{}//6
+		{}//7
+	}
+	Test{static{}//1 main{new Son();new Son();}}
+	第一个结果：1-6-3-7-5-4-2   父静态 子静态 父普通块 父构造 子普通块 子构造
+	第二个结果：7-5-4-2   父普通块 父构造 子普通块 子构造
+
+Linux高级
+	top后检查下面参数
+		CPU cpu占用率
+		MEM 内存使用率
+		COMMAND 哪个进程在执行
+		PID	进程ID
+		Load Average:系统负载率 三个数相加/3>60% 负担比较重 大于80% 基本用不了了
+			即任务队列的平均长度。三个数值分别为 1分钟、5分钟、15分钟前到现在的平均值。
+			total 进程总数
+		running 正在运行的进程数
+		sleeping 睡眠的进程数
+		stopped 停止的进程数
+		zombie 僵尸进程数
+		%CPU(s) 多核cpu的参数  us 使用率 id(idel)空闲率 越大越好
+		0.3% us 用户空间占用CPU百分比
+		1.0% sy 内核空间占用CPU百分比
+		0.0% ni 用户进程空间内改变过优先级的进程占用CPU百分比
+		98.7% id 空闲CPU百分比
+		0.0% wa 等待输入输出的CPU时间百分比
+		0.0%hi：硬件CPU中断占用百分比
+		0.0%si：软中断占用百分比
+		0.0%st：虚拟机占用百分比
+		Mem:
+			191272k total    物理内存总量
+			173656k used    使用的物理内存总量
+			17616k free    空闲内存总量
+			22052k buffers    用作内核缓存的内存量
+		Swap: 
+			192772k total    交换区总量
+			0k used    使用的交换区总量
+			192772k free    空闲交换区总量
+			123988k cached    缓冲的交换区总量,内存中的内容被换出到交换区，而后又被换入到内存，但使用过的交换区尚未被覆盖，该数值即为这些内容已存在于内存中的交换区的大小,相应的内存再次被换出时可不必再对交换区写入。
+
+	uptime 低配版top 整机性能 load average
+	
+	free -g free -m 查看内存
+	
+	df -h 查看磁盘
+	
+	vmstat -n 2 3 包含但不限于
+	
+分布式锁：
+	mysql乐观锁实现 并发量低 基本不用
+	redis
+	zookeeper 
+		默认创建的是持久节点
+		create -e /node0025 v0025  代表创建一个临时节点
+		create -s -e /node0025 v0025 代表创建一个临时有序节点
+		
+
+
+//查看innodb的磁盘页大小	
+show global status like 'Innodb_page_size' 默认16KB  16384字节
+
+Mysql索引知识：是排序好的数据结构
+演变过程
+	1、全表遍历 全表查询速度慢 复杂度O(n)
+	2、Hash	单值查询块 O(1) 如果是范围查询 复杂度O(n)
+	3、二叉树 理论情况下 复杂度为log(n) 如果是自增的主键 会生成一个左子树或者右子树的结构 复杂度O(n)
+	4、平衡二叉树AVL 树的高度会很高，频繁的IO写入，左旋右旋操作 复杂度log(n)
+	5、B树 把平衡二叉树的高瘦变成矮胖，减少磁盘IO 对于范围查询还是需要整个树遍历
+	6、B+树
+		非叶子节点不在存储数据，数据只存储在用一层的叶子节点上
+		叶子之间增加了链表，获取所有节点，不再需要中序遍历
+		范围查询等效率会跟高
+		
+	
+	
+LockSupport是用来创建锁和其他同步类的基本线程阻塞原语
+LockSupport中的park()和unpark的作用分别是阻塞线程和解除阻塞线程
+wait() notify()的改良版	
+
+为什么可以先唤醒线程后阻塞线程
+因为unpark获得了一个凭证 之后再调用park方法就可以凭证消费 故不会阻塞
+
+为什么唤醒两次后阻塞两次，但最终结果还会阻塞线程
+因为凭证的数量最多为1，连续调用两次unpark和调用一次unpark效果一样，只会增加一个凭证；
+而调用两次park却需要消费两个凭证，证不够，不能放行
+	
+	
+	
+	
+AQS = state + CLH队列  clh三个科学家的名字简称
+有个内部类Node 里面装的是没有抢到锁的Thread ,volatile state = 0 空闲 state =1 被占用
+AQS{
+	
+    private transient volatile Node head;//头结点
+    private transient volatile Node tail;//尾结点
+    private volatile int state;//0 空闲 1 被占用
+
+    static final class Node {
+        volatile int waitStatus;//每个线程的状态
+        volatile Node prev;//前结点
+        volatile Node next;//后结点
+        volatile Thread thread;//等待执行的线程
+        Node nextWaiter;
+
+	}
+}	
+
+	
+	
+	
