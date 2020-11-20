@@ -1,0 +1,91 @@
+netty是一个异步的基于事件驱动的网络应用框架，用已快速开发高性能高可靠性的网络io程序
+netty本质是一个nio框架，适用于服务器通讯相关的多种应用场景
+
+java的三种网络模型：BIO、NIO、AIO
+BIO 同步并阻塞，服务器实现模式为一个连接一个线程，即客户端有连接请求时服务器端就需要启动一个线程就行处理，
+	如果这个连接不做任何处理会造成不必要的线程开销、资源浪费
+NIO 同步非阻塞 服务器实现模式为一个线程请求多个连接，即客户端发送的请求都会注册到多路复用器上，多路复用器
+	轮询到连接有IO请求就进行处理
+AIO 异步非阻塞 AIO引用了异步通道的概念，采用了Proactor模式，简化了编写程序，有效的请求才启动线程，他的特点是先
+	由操作系统完成后才通知服务端程序启动线程去处理，一般适用于连接数多且连接时间长的应用
+
+BIO代码测试：	
+	cmd telnet 127.0.0.1 6666 连接上后：Ctrl+]进入发送模式  send test 发送数据
+NIO三大核心组件 Thread->Selector->channel->buffer
+	通道channel
+	buffer缓冲区
+	Selector选择器
+	1、每个线程对应一个Selector,selector可以注册多个channel,每个channel都会对应一个buffer,
+	2、程序切换到哪个channel是有事件驱动的，Event是一个重要的概念。
+	3、selector会根据不同的事件，在各个通道上切换
+	4、buffer是一个内存块，底层是一个数据，数据的读取写入是用过buffer
+
+零拷贝是什么：
+	常用的零拷贝有mmap内存映射和sendFile
+	DMA direct memory access 是直接内存拷贝不使用cpu 
+	1、从操作系统角度来说，因为内存缓冲区之间没有数据是重复的，只有kernel buffer有一份数据
+	2、零拷贝不仅仅带来更少的数据复制，还能带来其他的性能优势，例如更少的上下文切换，更少的cpu缓存伪共享以及无cpu校验和计算
+	
+	kernel buffer->socket buffer，还是有一次cpu拷贝 但是拷贝的信息很少，比如length,offset，消耗低可以忽略
+	mmap和sendfile(linux2.1版本提供)的区别
+	mmap适合小数据量读写，sendfile适合大文件传输
+	mmap需要4次上下文切换3次数据拷贝 sendfile需要三次上下文切换，做少2次数据拷贝
+	sendfile可以利用DMA方式减少cpu拷贝，mmap就不能
+
+NioEventLoopGroup 默认创建的线程数：当前cpu核数的两倍 4核*2 = 8个
+DEFAULT_EVENT_LOOP_THREADS = Math.max(1, SystemPropertyUtil.getInt("io.netty.eventLoopThreads", NettyRuntime.availableProcessors() * 2));	
+
+异步模式：
+	当一个异步过程调用发出后调用者不能立刻得到结果，实际处理这个调用的组件在完成后，通过状态、通知和回调来通知调用者
+	调用者不能立刻获得结果，而是通过future-listener机制，用户可以方便的主动获取或者通过通知机制获得IO操作结果
+	Netty的异步模型是建立在future和callback之上的。callback就是回调。Future就是某个方法可能非常耗时，等待结果返回可能不太合适
+	那么可以在调用的时候立马返回一个Future，后续通过Future去监控方法的处理过程
+
+Netty核心类和组件
+	Bootstrap、ServerBootstrap 主要作用是配置整个netty程序，串联各个组件，Bootstrap是客户端程序的启动引导类
+	、ServerBootstrap是服务端启动引导类
+	  serverBootstrap.group(boosGroup, workGroup)//设置两个线程组
+                .channel(NioServerSocketChannel.class)//使用NioServerSocketChannel 作为服务器通道的实现
+                .option(ChannelOption.SO_BACKLOG, 128)//设置线程队列 得到线程数量
+                .childOption(ChannelOption.SO_KEEPALIVE, true)//设置保持活动连接状态
+                .handler(null)//这个是boosGroup的处理
+                .childHandler(new ChannelInitializer<SocketChannel>() {//这个是workGroup的处理
+                    @Override
+                    protected void initChannel(SocketChannel socketChannel) throws Exception {
+                        socketChannel.pipeline().addLast(new NettyServerHandler());
+                    }
+                });
+	Channel Selector ChannelHandler
+	ChannelPipeline 提供了ChannelHandler链的容器。以客户端应用程序为例，如果事件的运动方向是从客户端到服务端的，那么我们
+	称这些事件为出站的，即客户端发送给服务端的数据会通过pipeline中的一系列ChannelOutboundHandler，并被这些handler处理，反之则成为入站
+
+编码解码
+	编写网络应用程序时因为数据在网络中传输的都是二进制字节码数据，在发送数据时就需要编码，接收数据时就需要解码
+	codec编码器的组成分两个，decoder解码器和encoder编码器。encoder负责把业务数据转换成字节码数据，decoder负责把字节码数据转换成业务数据
+	StringEncoder 对字符串数据进行编码
+	ObjectEncoder 对java对象进行编码
+	
+	StringDecoder 对字符串数据进行解码
+	ObjectDecoder 对java对象进行解码
+	
+	netty本身自带的ObjectDecoder和ObjectEncoder可以实现pojo对象或各种业务数据的编码和解码，底层使用的仍是java序列化技术，而
+	java序列化技术本身效率就不高，存在下面问题：
+	1、无法跨语言
+	2、序列化后体积太大。是二进制编码的五倍多
+	3、序列化性能差
+	引出新的解决方案【Google Protobuf】
+
+NIO的epoll空轮询bug：
+	在NIO的selector中，即使是关注的select轮询事件的key为0的话，NIO照样不断的从select本应该阻塞的情况中wake up出来。然后，因为selector的select方法，返回numKeys是0，所以下面本应该
+	对key值进行遍历的事件处理根本执行不了，又回到最上面的while(true)循环，循环往复，不断的轮询，直到linux系统出现100%的CPU情况，其它执行任务干不了活，最终导致程序崩溃。
+
+	在部分Linux的2.6的kernel中，poll和epoll对于突然中断的连接socket会对返回的eventSet事件集合置为POLLHUP，也可能是POLLERR，eventSet事件集合发生了变化，这就可能导致Selector会被唤醒。==》这是与操作系统机制有关系的，JDK虽然仅仅
+
+	Jetty首先定义两了-D参数： JVMBUG_THRESHHOLD MONITOR_PERIOD
+	第一个参数是select返回值为0的计数，第二个是多长时间，整体意思就是控制在多长时间内，如果Selector.select不断返回0，说明进入了JVM的bug的模式
+	首先，根据-D参数判断是否进入了JAVA NIO空转的bug模式，一个是判断时间，一个是判断次数，次数通过-jvmBug作为计数器进行统计；如果一旦确定是bug，
+	可以看到上述代码为了防止并发出现，加了Sychronized锁，接着开启一个新的Selector，并将原有的SelectionKey的事件全部转移到了新的Selector中，最后将-jvmBug计数器置0；
+
+
+	
+观察者模式：类似于订阅发布模式

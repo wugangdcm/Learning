@@ -23,3 +23,8 @@ HOME %USERPROFILE%
 machine github.com
 login wugang
 password Aa123456
+
+
+
+github:wugangdcm/wg147852369@
+gitee:wgdcm/wg147852369@
