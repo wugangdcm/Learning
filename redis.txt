@@ -87,7 +87,7 @@ lrem list 2 3 删除集合中N个value 即删除2个3
 ltrim list 0 4 从list中截取0到4位然后替换原来的value
 rpoplpush list1 list2 list1尾部出1一个数插入到list2的头部 
 
-Set相关：去重
+Set相关：去重 可用于抽奖 userId+productId 是key 值是userId
 sadd set01 1 1 2 3 4 插入元素去除重复的
 smembers set01	获取集合中的元素
 sismember set01 1 值是否在集合中存在 1 存在 0 不存在	
@@ -126,14 +126,20 @@ zcount zset01 60 80 作用是获取分数在60-80之间的个数
 zrank zset01 60 80 作用是获取下标值/zscore key对应值,获取分数
 zrevrank zset01 0 -1 作用是逆序获取下标值
 
+
+如果不设置最大内存大小或者设置最大内存大小为0，在64位操作系统下不限制内存大小，在32位操作系统下最多使用3GB内存
 redis的过期策略以及内存淘汰机制
 volatile-lru 设置了过期时间的key 根据最近最少使用算法淘汰key
-allkeys-lru	  对所有key 根据最近最少使用算法淘汰key
+allkeys-lru	  对所有key 根据最近最少使用算法淘汰key 生产上配置这个
+-- redis新版本新增的淘汰策略
+volatile-lfu 
+allkeys-lfu	  
 volatile-random 设置了过期时间的key 随机淘汰key
 allkeys-random 对所有key 随机淘汰key
 volatile-ttl 移除哪些ttl值最小的值 即那些最近要过期的key
 noeviction	不进行移除 针对写操作，只返回错误信息
 
+redis key不是一过期就马上删除的 采用下面的删除策略：
 redis采用的是定期删除+惰性删除策略。
 为什么不用定时删除策略?
 定时删除,用一个定时器来负责监视key,过期则自动删除。虽然内存及时释放，但是十分消耗CPU资源。在大并发请求下，CPU要将时间应用在处理请求，而不是删除key,因此没有采用这一策略.

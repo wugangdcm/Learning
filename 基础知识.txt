@@ -109,15 +109,101 @@ AQS{
     private volatile int state;//0 空闲 1 被占用
 
     static final class Node {
-        volatile int waitStatus;//每个线程的状态
+        volatile int waitStatus;//每个线程的状态 0 1
         volatile Node prev;//前结点
         volatile Node next;//后结点
         volatile Thread thread;//等待执行的线程
         Node nextWaiter;
-
 	}
-}	
+}
+公平锁和非公平锁的lock()方法唯一的区别就在于公平锁在获取同步状态时多了一个限制条件；
 
+
+Spring4->Spring5 boot1 -> boot2版本之间AOP切面执行的顺序
+正常情况
+1、@Around环绕通知之前
+2、@Before
+3、@Around环绕通知之后
+4、@After
+5、@AfterReturning 返回后通知
+异常情况
+1、@Around环绕通知之前
+2、@Before
+3、@After
+4、@AfterThrowing 异常通知
+
+spring5
+正常情况
+1、@Around环绕通知之前
+2、@Before
+3、@AfterReturning 返回后通知
+4、@After
+5、@Around环绕通知之后
+异常情况
+1、@Around环绕通知之前
+2、@Before
+3、@AfterThrowing 异常通知
+4、@After
+
+循环依赖：
+如果主要使用构造函数注入，则可能会创建无法解决的循环依赖方案
+使用set注入，是没有问题的
+默认的单例singleton场景是支持循环依赖的不报错
+原型prototype的场景是不支持循环依赖的会报错
+spring内部是通过三级缓存来解决循环依赖的
+DefaultSingletonBeanRegistry
+    private final Map<String, Object> singletonObjects = new ConcurrentHashMap(256);//一级缓存
+	也叫单例池，存放已经经历了完整生命周期的Bean对象
+	
+    private final Map<String, Object> earlySingletonObjects = new ConcurrentHashMap(16);//二级缓存
+	存放早期暴露出来的bean对象，Bean的生命周期未结束
+	
+    private final Map<String, ObjectFactory<?>> singletonFactories = new HashMap(16);//三级缓存
+	存放可以生成bean的工厂
+	
+只有单例的bean会通过三级缓存提前暴露来解决循环依赖的问题，而非单例的bean，每次从容器中获取都是一个新的对象
+，都会重新创建，所以非单例的bean是没有缓存的，不会将其放到三级缓存中。
+
+
+1、A创建过程中需要B，于是A将自己放到三级缓存里面，然后去实例化B
+2、B实例化的时候发现需要A 于是B先查一级缓存，没有，再查二级缓存，还是没有，再查三级缓存，找到了A,
+然后把三级缓存里面的这个A放到二级缓存里面，并删除三级缓存里面的A
+3、B顺利初始化完毕，将自己放到一级缓存里面，此时B里面的A依然是创建中状态。然后回来接着创建A,此时B已经创建
+就是，直接从一级缓存里面拿到B，然后完成创建，并将A放到一级缓存里面，删除二级缓存里面的A
+refresh()
+getBean()
+doGetBean()
+createBean()
+doCreateBean()
+populateBean()
+getSingleton()
+addSingleton()
+
+
+1.用户发送请求至 前端控制器DispatcherServlet。
+
+2.前端控制器DispatcherServlet收到请求后调用处理器映射器HandlerMapping。
+
+3.处理器映射器HandlerMapping根据请求的Url找到具体的处理器，生成处理器对象Handler及处理器拦截器HandlerIntercepter（如果有则生成）一并返回给前端控制器DispatcherServlet。
+
+4.前端控制器DispatcherServlet通过处理器适配器HandlerAdapter调用处理器Controller。
+
+5.执行处理器（Controller，也叫后端控制器）
+
+6.处理器Controller执行完后返回ModelAnView。
+
+7.处理器映射器HandlerAdapter将处理器Controller执行返回的结果ModelAndView返回给前端控制器DispatcherServlet。
+
+8.前端控制器DispatcherServlet将ModelAnView传给视图解析器ViewResolver。
+
+9.视图解析器ViewResolver解析后返回具体的视图View。
+
+10.前端控制器DispatcherServlet对视图View进行渲染视图（即：将模型数据填充至视图中）
+
+11.前端控制器DispatcherServlet响应用户。	
+	
+	
+	
 	
 	
 	
