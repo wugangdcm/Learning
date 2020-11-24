@@ -1,0 +1,25 @@
+docker 
+镜像 配置阿里云镜像加速
+/etc/sysconfig/docker配置文件新增 other_args="--registry-mirror=阿里云专属镜像地址"
+容器
+仓库
+
+//查看某个软件的镜像是否存在
+docker search mysql
+//查看镜像
+docker images
+//查看mysql镜像
+docker images mysql
+//获取某个指定版本的软件镜像
+docker pull mysql:5.6
+//删除指定的镜像
+docker rmi image-id 镜像id
+//运行容器中的mysql --name 别名 -p端口映射 -d后台程序启动
+docker run -p 13306:3306 --name mysql  -d mysql:5.6
+//停止运行中的容器
+docker stop 容器id
+//启动容器
+docker start 容器id
+//删除容器
+docker rm 容器id
+

@@ -1,9 +1,13 @@
 
 spring cloud相关知识点：
 什么是微服务：
-	强调的是服务的大小，关注的是某一个带你，是具体解决某一个问题/提供落地对应服务的一个服务应用。
+	强调的是服务的大小，关注的是某一个点，是具体解决某一个问题/提供落地对应服务的一个服务应用。
 微服务之间是如何独立通讯的：
 	
+//查看spring cloud和boot版本选型的
+https://start.spring.io/actuator/info
+//查看服务健康状态
+http://peer1:8002/actuator/health
 
 springCloud和Dubbo有哪些区别：
 	dubbo基于rpc远程过程调用
@@ -21,22 +25,24 @@ SpringBoot和SpringCloud，请你谈谈对他们的理解：
 	微服务条目				落地技术
 	服务开发、				SpringBoot、Spring、SpringMVC
 	服务配置与管理、		NEtflix的Archaius，阿里的Diamond
-	服务注册与发现、		Eureka、Zookeeper、Consul
 	服务调用、				Rest、RPC、GRPC
-	服务熔断器、			Hystrix、Envoy
+	
+	服务注册与发现、		Eureka(停止更新了 停更不停用)、Zookeeper、Consul、Nacos
 	服务负载均衡、			Ribbon、Nginx
-	服务接口调通、			Feign
+	服务接口调通、			Feign(停止更新了)、OpenFeign(推荐使用)
+	服务熔断器、			Hystrix(停更)、sentienl
+	服务网关				Zuul(基本不用) gateway 推荐使用
+	服务配置中心管理		SpringCloudConfig Nacos(推荐)
+	时间消息总栈			SpringCloudBus Nacos(推荐)
+	
 	消息队列				Kafka\RabbitMQ、ActiveMQ
-	服务配置中心管理		SpringCloudConfig
-	服务路由				Zuul
 	服务监控				Zabbix\Nagios\Merics\Spectator
 	服务部署				Docker\Openstack
-	时间消息总栈			SpringCloudBus
 	
+--------------------------------------------------------------------------------------------------------------------------------
 eureka和zookeeper都可以提供服务注册与发现的功能，请说说两个的区别：
 	1、eureka遵循AP zookeeper循询CP
 	2、
-
 
 eureka相关知识：Eureka循询AP原则
 1、eureka服务端配置参数
@@ -44,18 +50,54 @@ eureka相关知识：Eureka循询AP原则
 	fetch-registry:false 表示自己就是注册中心，职责是维护服务实例，并不需要检索服务
 	启动类上配置@EnableEurekaServer
 2、Eureka自我保护机制
-  eureka:
-	client：客户端注册进eureka服务列表内
-		srvice-url:
-			defaultZone:http://localhost:7001/eureka
-	instance:
-		instance-id:springcloud-test8001 自定义服务器信息
-		prefer-ip-address:true  访问路径可以显示ip地址
+  某个时刻某一个微服务不可用了，eureka不会立刻清理，依旧会对该微服务的信息进行保存。
+ 1、为什么会产生eureka自我保护机制
+	为了防止eurekaClient可以正常运行，但是与eurekaserver网络不通的情况下，eurekaserver不会将eurekaclient服务剔除
+ 2、什么是自我保护模式
+	默认情况下，EurekaServer在一定时间内没有接收到某个微服务实例的心跳,EurekaServer将会注销该实例(默认90秒)
+	但是当网络分区故障发生(延时、卡顿)时，微服务与EurekaServer之间无法正常通信，以上行为可能变得非常危险。
+	因为微服务本身是健康的，此时不应该注销这个微服务。Eureka通过自我保护模式来解决这个问题。 
+	当EurekaServer结点在短时间内丢失过多客户端时，那么这个结点进入自我保护模式
+服务端配置
+eureka:
+  instance:
+    hostname: eureka7001.com
+  client:
+    register-with-eureka: false
+    fetch-register: false
+    service-url:
+      defaultZone: http://eureka7001.com:7001/eureka/
+#      defaultZone: http://eureka7002.com:7002/eureka/ #集群
+  server:
+    enable-self-preservation: false  #自我保护机制 false时保证不可应服务能及时剔除
+    eviction-interval-timer-in-ms: 2000 
+
+客户端配置
+eureka:
+  client:
+    service-url:
+      defaultZone: http://eureka7001.com:7001/eureka
+#      defaultZone: http://eureka7001.com:7001/eureka,http://eureka7002.com:7002/eureka
+  instance:
+    instance-id: payment8001 #实例名称
+    prefer-ip-address: true #访问地址显示ip
+    lease-renewal-interval-in-seconds: 1 #客户端向服务端发送心跳的时间间隔 默认是30秒
+    lease-expiration-duration-in-seconds: 2 #服务器在收到最后一次心跳后等待时间上限，默认是90秒 超过将会剔除
+
+--------------------------------------------------------------------------------------------------------------------------------	
+consul安装命令：
+	consul agent -dev
+后台访问地址
+	http://localhost:8500/
 	
+	
+--------------------------------------------------------------------------------------------------------------------------------
 Ribbon负载均衡(Load Balance LB)：
 	在微服务或分布式集群中经常用的一种应用。
 	负载均衡简单的说就是将用户的请求平摊的分配到多个服务上，从而达到系统的HA
 	常见的负载均衡有nginx,lvs等
+	Nginx是服务器负载均衡，客户端请求都会交给nginx,然后由nginx实现转发请求。
+	Ribbon是本地负载均衡，在调用服务接口的时候，会在注册中心上获取注册信息服务列表之后缓存到JVM本地，从而在本地实现RPC远程服务调用
 	dubbo和springcloud均给我们提供了负载均衡，springcloud的负载均衡算法可以自定义
 	ribbon其实就是一个软负载均衡的客户端组件，他可以和其他所需请求的客户端结合使用，和eureka结合只是其中的一个实例
 RiundRobinRule 轮询
