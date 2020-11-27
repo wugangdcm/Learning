@@ -27,7 +27,7 @@ SpringBoot和SpringCloud，请你谈谈对他们的理解：
 	服务配置与管理、		NEtflix的Archaius，阿里的Diamond
 	服务调用、				Rest、RPC、GRPC
 	
-	服务注册与发现、		Eureka(停止更新了 停更不停用)、Zookeeper、Consul、Nacos
+	服务注册与发现、		Eureka(停止更新了 停更不停用) AP 、Zookeeper CP、Consul CP、Nacos AP+CP都支持可配置
 	服务负载均衡、			Ribbon、Nginx
 	服务接口调通、			Feign(停止更新了)、OpenFeign(推荐使用)
 	服务熔断器、			Hystrix(停更)、sentienl
@@ -269,6 +269,11 @@ Feign相关知识：
 	只需要创建一个接口，然后再上面添加注解即可
 	feign集成了ribbon，通过轮询实现了客户端的负载均衡
 	
+	feign日志级别 
+	NONE 默认的 不显示任何日志
+	BASIC 仅记录请求方法、URL、响应状态码及执行时间
+	HEADERS 除了BASIC中定义信息外 还有请求和响应的有信息
+	FULL 除了HEADERS中定义信息外 还有请求和响应的正文及元数据
 --------------------------------------------------------------------------------------------------------------------------------	
 Hystrix断路器相关知识：
 	服务降级 fallback （程序运行异常 超时 服务熔断触发服务降级 线程池、信号量打满等）
@@ -310,8 +315,127 @@ after
 http://myzuul.com:9889/myuser/user/get/1
 prefix:加了该参数后的访问地址
 http://myzuul.com:9889/vg/myuser/user/get/1
+--------------------------------------------------------------------------------------------------------------------------------
+gateway网关：https://docs.spring.io/spring-cloud-gateway/docs/2.2.5.RELEASE/reference/html/#gateway-request-predicates-factories
+异步非阻塞的
+路由工厂：
+	- After=2017-01-20T17:42:47.789-07:00[America/Denver]
+	- Before=2017-01-20T17:42:47.789-07:00[America/Denver]
+	- Between=2017-01-20T17:42:47.789-07:00[America/Denver], 2017-01-21T17:42:47.789-07:00[America/Denver]
+	- Cookie=chocolate, ch.p
+	- Header=X-Request-Id, \d+
+	- Host=**.somehost.org,**.anotherhost.org
+	- Method=GET,POST
+	- Path=/red/{segment},/blue/{segment}
+	- Query=green
+	- RemoteAddr=192.168.1.1/24
+	- Weight=group1, 2
+
+cmd命令窗口模拟postman发送请求
+	curl http://localhost:9001/payment/getLb --Cookie "username=test"
 
 --------------------------------------------------------------------------------------------------------------------------------
 SpringCloud Config分布式配置中心
 	为微服务架构中的微服务提供集中化的外部配置支持，配置服务器为各个不同微服务应用的所有环境提供了一个中心化的外部配置
 	分为服务端和客户端两部分
+	
+curl -X POST "http://localhost:3355/actuator/refresh"
+	
+	
+SpringCloud Bus
+	总线消息：一次通知 全部生效
+	curl -X POST "http://localhost:3344/actuator/bus-refresh"
+	//指定目标客户端通知
+	curl -X POST "http://localhost:3344/actuator/bus-refresh/cloud-config-client55:3355"
+
+	
+--------------------------------------------------------------------------------------------------------------------------------
+SpringCloud Stream消息驱动
+	1、为什么引入 
+		屏蔽底层消息中间件的差异，降低切换成本，统一消息的编程模型
+	2、解决的痛点
+	
+	重复消费：
+	默认分组group是不同的，组流水号不一样，被认为不是同一组，都可以消费
+	
+	group解决重复消费：
+	1、不同组是可以全面消费的（重复消费）
+	2、同一组内会发生竞争关系只有一个可以消费
+	
+	组成：
+	Middleware  中间件 目前只支持RabbitMQ和Kafka
+	Binder	Binder是应用与消息中间件之间的封装，目前实行了kafka和rabbitmq的binder.通过binder可以很方便
+		的连接中间件，可以动态的改变消息类型(对应kafka的topic,rabbitMQ的exchange).可以通过配置文件实现
+	@Input	注解标识输入通道 通过该输入通道接收到的消息进入应用程序
+	@Output	注解标识输出通道，发布的消息将通过该通道离开应用程序
+	@StreamListener 监听队列 用于消费者的队列的消息接收
+	@EnableBinding 指信道channel和exchange绑定在一起
+	
+	
+SpringCloud Sleuth 服务调用链路监控
+zipkin localhost:9411/zipkin
+	
+SpringCloud Alibaba nacos
+	CP、AP如何选型
+	如果不需要存储服务级别的信息且服务实例时用过nacos-client注册，并能够保持心跳上报，那么久可以选择ap模式。当前主流的
+	服务如spring cloud和dubbo服务，都适用于ap模式，ap模式是为了服务的可能性而减弱了一致性，因此ap模式下只支持注册临时实例
+	如果需要在服务级别编辑或者存储配置信息，那么cp是必须的，k8s服务和nds服务适用于cp模式，cp模式下支持注册持久化实例，此时
+	则是以raft协议为集群运行模式，该模式下注册实例之前必须先注册服务，如果服务不存在就会返回错误
+	
+	curl -X PUT '$NACOS_SERVER:8848/nacos/v1/ns/operator/switches?entry=serverMode&value=CP'
+
+${prefix}-${spring.profile.active}.${file-extension}
+${spring.application.name}-${spring.profile.active}.${spring.cloud.nacos.config.file-extension}
+
+nacos默认情况
+	namespace=public group=DEFAULT_GROUP,Cluster=default
+nacos默认的命名空间时public,namespace主要用来实现隔离
+比方说我们有撒个环境：开发、测试、生产，我们就可以创建三个namespace,不同的namespace之间是隔离的
+group可以把不同的微服务分到同一个组里面去
+service就是微服务，一个service可以包含多个Cluster集群，cluster是对指定微服务的一个虚拟划分。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
+	
