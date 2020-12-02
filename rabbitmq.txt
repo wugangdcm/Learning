@@ -1,0 +1,98 @@
+ 队列直连模式：
+	channel.queueDeclare("hello",false,false,false,null)
+	参数1：队列名称 不存在则自动创建
+	参数2：用来定义队列是否要持久化 true 持久化 false 不持久化
+	参数3：是否独占队列  true 独占 false 不独占
+	参数4：是否在消费完成后自动删除队列  true 自动删除 false 不自动删除
+	参数5：其他参数
+	
+	channel.basicPublish("","hello",null,"hello rabbitmq".getBytes())
+	参数1：交换机名称
+	参数2：队列名称
+	参数3：传递消息额外设置 (消息持久化 MessageProperties.PERSISTENT_TEXT_PLAIN)
+	参数4：消息的具体内容
+	
+WORK QUEUE模式
+	如果消费者接收消息配置的自动确认 那么就是平均分配。这个会造成某个消费者消费慢的时候 会拖垮服务器
+	且可能造成消息丢失，比如处理到一半的时候消费者挂了等等
+	
+	所以要改成手动确认，且通道要设置为只接受一个消息。消息消费完成后手动ACK确认后删除消息。该模式可以
+	合理分配消息，处理快的服务器处理的消息就多。
+	
+fanout 广播模型 发布订阅
+	可以有多个消费者
+	每个消费者有自己的queue
+	每个队列都绑定到Exchange
+	生产者发送的消息，只能发送到交换机，由交换机决定发给那个队列
+	交换机把消息发送给绑定过的所有队列
+	队列的消费者都能获取到消息，实现一个消息被多个消费者消费
+	
+	channel.exchangeDeclare("logs","fanout")
+	参数1：交换机名称 参数2：类型
+	
+Routing路由 direct直连
+	direct模型下：队列与交换机绑定不能是任意绑定了，而是需要指定一个RoutingKey
+	消息的发送方向Exchange发送消息时，也需要指定RoutingKey
+	Exchange不再把消息给每一个绑定的队列，而是根据RoutingKey进行判断，只有队列
+	的RoutingKey与消息的RoutingKey一致才能接受到消息
+
+Routing路由 topic
+	topic类型的exchange与direct相比，都是可以根据routing把消息路由到不同的队列。只不过topic类型
+	的交换机可以让队列在绑定RoutingKey的时候使用通配符
+	*.key.* 必须三个节点
+	#.key.# 包含key节点就行
+
+消息的高级特性：
+	消息的可靠投递：
+	1、confirm 确认模式
+	2、return 退回模式
+rabbitmq整个消息投递的路径为：
+producer -> rabbitmq broker -> exchange -> queue -> consumer
+生产端的：
+	消息从producer到exchange则会返回一个ConfirmCallback
+	消息从exchange到queue投递失败则会返回一个ReturnCallback	
+		1、开启回退模式：默认是false 设置publisher-returns = true
+		2、设置ReturnCallback
+		3、设置exchange处理消息的模式 setMandatory(true)
+			默认false 如果消息没有路由到queue 则丢弃消息
+			如果没有路由到queue 返回给消息发送方，进入回调方法
+消费端的：
+	自动确认：acknowledge="none"
+	手动确认：acknowledge="manual"
+	根据异常情况确认：acknowledge="auto"
+	自动确认是指,当消息一旦被consumer接收到，则自动确认收到，并将相应message从rabbitmq的消息缓存中移除
+	，但是实际业务处理中，很可能消息收到，但是业务出现异常，那么该消息就会丢失。设置为手动确认，就能在业务处理成功后，
+	调用channel.basiAck()手动签收。如果出现异常。则调用channel.basicNack()让其自动重新发送消息。
+
+事务保证消息可靠性：
+	channel.txSelect();
+	channel.txCommit();
+	channel.txRollBack();
+
+消费端限流：
+	rebbit:listener-container中配置prefetch属性设置消费端一次拉去多少消息
+	消费端确认模式一定为手动确认。
+	
+TTL过期时间设置
+	设置队列过期时间使用参数：x-message-ttl 单位毫秒，会对整个队列消息统一过期
+	设置消息过期时间使用参数：expiration 单位毫秒，当消息在队列头部时，会单独判断这一消息是否过期
+	如果两者都进行了设置，已时间短的为准
+	
+死信队列： DLX Dead Letter Exchange 死信交换机
+	当消息成为dead message后，可以重新发送到另外一个交换机，这个交换机就是DLX
+消息成为死信的三种情况：
+	1、队列消息长度达到限制
+	2、消费者拒绝消费消息，并且不把消息重新放入原目标队列
+	3、原队列存在消息过期时间设置，消息达到超时是阿金未被消费
+	
+延迟队列：
+	即消息进入队列后不会立即被消费，只要到达指定时间后才会被消费
+	TTL+死信队列实现
+	
+消息追踪：
+	可以使用firehose和rabbitmq_tracing插件功能来实现消息追踪
+	
+RabbitMQ应用问题
+	1、消息可靠性保障 消息补偿机制
+	2、消息幂等性保障 乐观锁解决方案 多次重复消息通过版本号控制
+	
